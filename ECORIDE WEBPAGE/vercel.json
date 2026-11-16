@@ -1,0 +1,9 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://ecoride-backend-0ll4.onrender.com/api/:path*"
+    }
+  ]
+}
+

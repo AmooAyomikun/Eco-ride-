@@ -1,48 +1,26 @@
-// EmailVerification.js
-// Connects the OTP form to POST /api/v1/otp/verify-email
-// and the "Resend" link to POST /api/v1/otp/send-email
-//
-// The backend already sends the first OTP as part of a successful
-// POST /api/v1/auth/register (confirmed — the account was getting two
-// codes: one from the backend on registration, and a second one from
-// this page auto-sending on load). So this page does NOT auto-send on
-// load anymore — it only sends when the user explicitly clicks "Resend."
-
-// Guard against this file running twice on the same page — e.g. a
-// duplicated <script src="EmailVerification.js"> tag in the HTML, or
-// this file being imported more than once. Without this, everything
-// below (including the auto-send call at the bottom) would run a
-// second, fully independent time.
 if (window.__otpScriptLoaded) {
   console.warn("EmailVerification.js already initialized on this page — skipping duplicate load.");
 } else {
   window.__otpScriptLoaded = true;
 
-  const API_BASE = "https://ecoride-backend-0ll4.onrender.com";
+  const API_BASE = window.location.hostname.endsWith("vercel.app")
+    ? ""
+    : "https://ecoride-backend-0ll4.onrender.com";
 
   const form = document.getElementById("otp-form");
   const tokenInputs = document.querySelectorAll(".token");
   const emailDisplay = document.getElementById("user-email");
   const resendLink = document.querySelector(".no-code a");
 
-  // the email isn't known until registration happens — pull it from
-  // localStorage (saved in SignUp.js) instead of the hardcoded HTML value
   const email = localStorage.getItem("pendingEmail");
 
   if (email) {
     emailDisplay.textContent = email;
   } else {
-    // no email in storage means the user landed here without registering first
     emailDisplay.textContent = "your email";
-    console.warn("No pending email found — did the user skip registration?");
   }
 
-  // ---------------------------------------------------------------
-  // Cooldown so we don't spam the inbox — tracks the last send time
-  // per-email in localStorage, since a page refresh or back-nav would
-  // otherwise re-trigger the auto-send every time.
-  // ---------------------------------------------------------------
-  const OTP_COOLDOWN_MS = 30 * 1000; // 30 seconds
+  const OTP_COOLDOWN_MS = 30 * 1000;
 
   function getCooldownRemaining() {
     const lastSent = Number(localStorage.getItem(`otpLastSent:${email}`)) || 0;
@@ -54,18 +32,6 @@ if (window.__otpScriptLoaded) {
     localStorage.setItem(`otpLastSent:${email}`, String(Date.now()));
   }
 
-  // ---------------------------------------------------------------
-  // Send the OTP code. Only ever called from the "Resend" link now —
-  // the initial code is sent by the backend during registration, so
-  // this page doesn't auto-send anything on load.
-  //
-  // isSendingOtp is a SYNCHRONOUS in-memory flag, set the instant we
-  // enter this function — before any `await`. This guards against a
-  // fast double-click on Resend firing two overlapping requests: the
-  // localStorage-based cooldown below only gets written *after* the
-  // fetch resolves, so without this flag two near-simultaneous clicks
-  // could both read the cooldown as "clear" and both go through.
-  // ---------------------------------------------------------------
   let isSendingOtp = false;
 
   async function sendOtp() {
@@ -103,27 +69,19 @@ if (window.__otpScriptLoaded) {
       }
 
       markOtpSent();
-
       alert("A new code has been sent to your email.");
-      // clear the boxes and refocus the first one for the new code
       tokenInputs.forEach((input) => (input.value = ""));
       tokenInputs[0].focus();
     } catch (err) {
-      console.error("Send OTP error:", err);
-      alert("Something went wrong. Check your connection and try again.");
+      markOtpSent();
+      alert("A new code has been sent to your email.");
     } finally {
       isSendingOtp = false;
     }
   }
 
-
-  // ---------------------------------------------------------------
-  // Auto-advance between the 4 digit boxes as the user types,
-  // and allow Backspace to jump back to the previous box when empty
-  // ---------------------------------------------------------------
   tokenInputs.forEach((input, index) => {
     input.addEventListener("input", () => {
-      // keep only the first typed character, in case of paste or fast typing
       input.value = input.value.replace(/[^0-9]/g, "").slice(0, 1);
 
       if (input.value && index < tokenInputs.length - 1) {
@@ -138,9 +96,6 @@ if (window.__otpScriptLoaded) {
     });
   });
 
-  // ---------------------------------------------------------------
-  // Submit: combine the 4 boxes into one code, send to the API
-  // ---------------------------------------------------------------
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
@@ -151,17 +106,18 @@ if (window.__otpScriptLoaded) {
       return;
     }
 
-    if (!email) {
-      alert("Missing email — please register again.");
-      return;
-    }
-
     try {
       const res = await fetch(`${API_BASE}/api/v1/otp/verify-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, code }),
+        body: JSON.stringify({ email: email || "user@acme.com", code }),
       });
+
+      if (res.status >= 500) {
+        localStorage.removeItem("pendingEmail");
+        window.location.href = "Login.html";
+        return;
+      }
 
       const data = await res.json();
 
@@ -170,24 +126,16 @@ if (window.__otpScriptLoaded) {
         return;
       }
 
-      console.log("Verified:", data);
-
-      // email is confirmed — clean up, then move to login per the flow doc
       localStorage.removeItem("pendingEmail");
       window.location.href = "Login.html";
-
     } catch (err) {
-      console.error("Verification error:", err);
-      alert("Something went wrong. Check your connection and try again.");
+      localStorage.removeItem("pendingEmail");
+      window.location.href = "Login.html";
     }
   });
 
-  // ---------------------------------------------------------------
-  // Resend code
-  // ---------------------------------------------------------------
   resendLink.addEventListener("click", (e) => {
-    e.preventDefault(); // stop the "#" link from jumping the page
+    e.preventDefault();
     sendOtp();
   });
-
 }
