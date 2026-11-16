@@ -18,9 +18,9 @@
 
 <div class="dash-layout">
 
-  <aside class="sidebar">
+  <aside class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-      <img src="Assets/Ecologo.png">
+      <img src="Assets/Ecologo.png" alt="EcoRide">
       <h1>Eco<span>Ride</span></h1>
     </div>
 
@@ -36,32 +36,38 @@
     <nav class="sidebar-nav">
       <ul id="sidebar-nav-list">
         <li class="nav-item" data-href="CorporateDashboard.html"><i class="ph ph-squares-four"></i> Overview</li>
-        <li class="nav-item" data-href="EmployeeViewDashboard.html"><i class="ph ph-users"></i> Employees</li>
+        <li class="nav-item" data-href="EmployeeViewDashboard.html"><i class="ph ph-user"></i> Employees</li>
         <li class="nav-item" data-href="Trips.html"><i class="ph ph-car"></i> Trips</li>
-        <li class="nav-item" data-href="Bookings.html"><i class="ph ph-bookmark-simple"></i> Bookings</li>
+        <li class="nav-item" data-href="Bookings.html"><i class="ph ph-identification-card"></i> Bookings</li>
         <li class="nav-item" data-href="Wallet.html"><i class="ph ph-wallet"></i> Wallet</li>
-        <li class="nav-item" data-href="Reports.html"><i class="ph ph-chart-bar"></i> Reports</li>
-        <li class="nav-item active" data-href="CompanySettings.html"><i class="ph-fill ph-gear"></i> Company Settings</li>
+        <li class="nav-item" data-href="Reports.html"><i class="ph ph-file-text"></i> Reports</li>
+        <li class="nav-item active" data-href="CompanySettings.html"><i class="ph ph-gear"></i> Company Settings</li>
       </ul>
     </nav>
 
     <div class="sidebar-bottom">
-        <div class="help-card">
-          <i class="ph-fill ph-headset"></i>
-          <div>
+      <div class="help-card">
+        <div class="help-card-header">
+          <div class="help-icon"><i class="ph-fill ph-headset"></i></div>
+          <div class="help-text">
             <p>Need Help?</p>
             <span>Visit our support center</span>
           </div>
-          <button class="contact-support-btn" id="contact-support-btn">Contact Support</button>
-        
         </div>
-        <button class="logout-btn" id="logout-btn"><i class="ph ph-sign-out"></i> Logout</button>
+        <button class="contact-support-btn" id="contact-support-btn">Contact Support</button>
       </div>
+      <button class="logout-btn" id="logout-btn"><i class="ph ph-sign-out"></i> Logout</button>
+    </div>
   </aside>
 
   <main class="dash-main">
 
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
     <header class="dash-topbar">
+      <button class="menu-toggle-btn" id="sidebar-toggle" aria-label="Toggle navigation">
+        <i class="ph ph-list"></i>
+      </button>
       <div class="search-bar">
         <input type="text" placeholder="Search">
         <i class="ph ph-magnifying-glass"></i>
@@ -70,7 +76,7 @@
         <button class="icon-btn" aria-label="Notifications"><i class="ph ph-bell"></i></button>
         <button class="icon-btn" aria-label="Help"><i class="ph ph-question"></i></button>
         <div class="admin-profile">
-          <img src="Assets/admin-avatar.png" alt="" class="avatar">
+          <img src="Assets/Admin.jpg" alt="Tunde Adewale" class="avatar">
           <div class="admin-info">
             <span class="admin-name">Tunde Adewale</span>
             <span class="admin-role">Super Admin</span>
@@ -92,10 +98,6 @@
       <button class="settings-tab" data-tab="team"><i class="ph ph-users-three"></i> Admins &amp; Roles</button>
     </div>
 
-    <!-- Company Profile tab
-         ⚠️ No design reference — fields match what the corporate flow doc
-         (Step 5: Create Corporate Profile) says the backend expects:
-         companyName, rcNumber, companyPhone, companyAddress, industry. -->
     <section class="panel settings-panel" id="tab-profile">
       <div class="settings-verification-banner" id="verification-banner"></div>
 
@@ -137,9 +139,6 @@
       </div>
     </section>
 
-    <!-- Documents tab
-         ⚠️ No design reference — mirrors the corporate flow doc's
-         Step 6 (cacCertificate, taxCertificate, businessLicense). -->
     <section class="panel settings-panel" id="tab-documents" style="display:none;">
       <div class="wizard-field-group full-width">
         <h4>Corporate Documents</h4>
@@ -147,7 +146,6 @@
       </div>
     </section>
 
-    <!-- Notifications tab -->
     <section class="panel settings-panel" id="tab-notifications" style="display:none;">
       <div class="wizard-field-group full-width">
         <h4>Notification Preferences</h4>
@@ -158,16 +156,17 @@
       </div>
     </section>
 
-    <!-- Admins & Roles tab -->
     <section class="panel settings-panel" id="tab-team" style="display:none;">
       <div class="panel-header">
         <h3>Admins &amp; Roles</h3>
         <button class="add-employee-btn" id="invite-admin-btn">Invite Admin</button>
       </div>
-      <table class="emp-table">
-        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Actions</th></tr></thead>
-        <tbody id="admins-table-body"></tbody>
-      </table>
+      <div class="table-scroll-wrap">
+        <table class="emp-table">
+          <thead><tr><th>NAME</th><th>EMAIL</th><th>ROLE</th><th>ACTIONS</th></tr></thead>
+          <tbody id="admins-table-body"></tbody>
+        </table>
+      </div>
     </section>
 
   </main>

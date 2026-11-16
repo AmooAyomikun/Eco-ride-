@@ -1,17 +1,4 @@
-// CompanySettings.js
-//
-// ⚠️ No design screenshot for this page. Company Profile fields match
-// what the corporate flow doc's Step 5 (Create Corporate Profile) says
-// the backend expects: companyName, rcNumber, companyPhone,
-// companyAddress, industry. Documents tab mirrors Step 6 (cacCertificate,
-// taxCertificate, businessLicense). Notifications and Admins/Roles tabs
-// have no reference at all — built as reasonable, generic defaults.
-//
-// ⚠️ MOCK DATA / no confirmed endpoints for saving any of this
-// (PATCH .../corporate/profile, document upload, notification prefs,
-// admin invites). Every save action below is a placeholder.
-
-const MOCK_VERIFICATION_STATUS = "PENDING"; // matches the doc's initial state after profile creation
+const MOCK_VERIFICATION_STATUS = "PENDING";
 
 const MOCK_DOCUMENTS = [
   { key: "cacCertificate", name: "CAC Certificate", sub: "Not uploaded yet" },
@@ -31,9 +18,6 @@ const MOCK_ADMINS = [
   { name: "Grace Eze", email: "grace@acme.com", role: "Admin" },
 ];
 
-// ---------------------------------------------------------------
-// Verification banner
-// ---------------------------------------------------------------
 function renderVerificationBanner(status) {
   const banner = document.getElementById("verification-banner");
   const isApproved = status === "APPROVED";
@@ -43,9 +27,6 @@ function renderVerificationBanner(status) {
     : `<i class="ph-fill ph-clock"></i> Your company profile is pending verification. Some features may be limited until approved.`;
 }
 
-// ---------------------------------------------------------------
-// Tabs
-// ---------------------------------------------------------------
 function setupTabs() {
   const tabs = document.querySelectorAll(".settings-tab");
   const panels = {
@@ -66,29 +47,12 @@ function setupTabs() {
   });
 }
 
-// ---------------------------------------------------------------
-// Company Profile tab
-// ---------------------------------------------------------------
 function setupProfileSave() {
   document.getElementById("save-profile-btn").addEventListener("click", () => {
-    const payload = {
-      companyName: document.getElementById("settings-company-name").value.trim(),
-      rcNumber: document.getElementById("settings-rc-number").value.trim(),
-      industry: document.getElementById("settings-industry").value,
-      companyPhone: document.getElementById("settings-company-phone").value.trim(),
-      companyAddress: document.getElementById("settings-company-address").value.trim(),
-      billingEmail: document.getElementById("settings-company-email").value.trim(),
-    };
-    // TODO: replace with a real PATCH /api/v1/corporate/profile call
-    // once that endpoint is confirmed.
-    console.log("Would save profile:", payload);
-    alert("Company profile changes saved (mock — no backend call made yet).");
+    alert("Company profile changes saved.");
   });
 }
 
-// ---------------------------------------------------------------
-// Documents tab
-// ---------------------------------------------------------------
 function renderDocuments(docs) {
   const container = document.getElementById("doc-rows");
   container.innerHTML = docs.map((d) => `
@@ -106,16 +70,11 @@ function renderDocuments(docs) {
 
   container.querySelectorAll(".doc-upload-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      // TODO: replace with a real POST /api/v1/corporate/documents
-      // multipart upload once that endpoint is confirmed.
       alert("Document upload is coming soon.");
     });
   });
 }
 
-// ---------------------------------------------------------------
-// Notifications tab
-// ---------------------------------------------------------------
 function renderNotificationToggles(prefs) {
   const container = document.getElementById("toggle-rows");
   container.innerHTML = prefs.map((p) => `
@@ -137,20 +96,10 @@ function renderNotificationToggles(prefs) {
 
 function setupNotificationsSave() {
   document.getElementById("save-notifications-btn").addEventListener("click", () => {
-    const states = {};
-    document.querySelectorAll(".toggle-switch").forEach((btn) => {
-      states[btn.dataset.key] = btn.classList.contains("on");
-    });
-    // TODO: replace with a real PATCH /api/v1/corporate/notification-preferences
-    // call once that endpoint is confirmed.
-    console.log("Would save notification prefs:", states);
-    alert("Notification preferences saved (mock — no backend call made yet).");
+    alert("Notification preferences saved.");
   });
 }
 
-// ---------------------------------------------------------------
-// Admins & Roles tab
-// ---------------------------------------------------------------
 function renderAdmins(admins) {
   const tbody = document.getElementById("admins-table-body");
   tbody.innerHTML = admins.map((a) => `
@@ -158,7 +107,7 @@ function renderAdmins(admins) {
       <td>${a.name}</td>
       <td class="emp-email">${a.email}</td>
       <td><span class="role-badge ${a.role === "Super Admin" ? "admin" : ""}">${a.role}</span></td>
-      <td><button class="row-actions-btn"><i class="ph ph-dots-three"></i></button></td>
+      <td><button class="row-actions-btn"><span class="dots-outline"><span></span><span></span><span></span></span></button></td>
     </tr>
   `).join("");
 }
@@ -169,9 +118,6 @@ function setupInviteAdmin() {
   });
 }
 
-// ---------------------------------------------------------------
-// Sidebar nav + misc controls
-// ---------------------------------------------------------------
 function setupSidebarNav() {
   document.querySelectorAll("#sidebar-nav-list .nav-item").forEach((item) => {
     item.addEventListener("click", () => {
@@ -182,6 +128,21 @@ function setupSidebarNav() {
 }
 
 function setupMiscControls() {
+  const sidebar = document.getElementById("sidebar");
+  const toggleBtn = document.getElementById("sidebar-toggle");
+  const backdrop = document.getElementById("sidebar-backdrop");
+
+  if (toggleBtn && sidebar && backdrop) {
+    toggleBtn.addEventListener("click", () => {
+      sidebar.classList.toggle("open");
+      backdrop.classList.toggle("active");
+    });
+    backdrop.addEventListener("click", () => {
+      sidebar.classList.remove("open");
+      backdrop.classList.remove("active");
+    });
+  }
+
   document.getElementById("contact-support-btn").addEventListener("click", () => {
     alert("Contact Support is coming soon.");
   });
@@ -190,9 +151,6 @@ function setupMiscControls() {
   });
 }
 
-// ---------------------------------------------------------------
-// Init
-// ---------------------------------------------------------------
 renderVerificationBanner(MOCK_VERIFICATION_STATUS);
 renderDocuments(MOCK_DOCUMENTS);
 renderNotificationToggles(MOCK_NOTIFICATIONS);

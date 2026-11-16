@@ -190,39 +190,41 @@ button[type="submit"]:hover {
         flex: none;
         max-width: 100%;
         height: auto;
-        padding: 20px 0 0;
+        border-radius: 14px 14px 0 0;
+        padding: 16px 0 0;
     }
 
     .overlay-image {
-        height: 110px;
+        height: 80px;
         margin-top: 0;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
     }
 
     .down-image {
-        max-width: 420px;
-        padding-bottom: 28px;
+        max-width: 360px;
+        padding-bottom: 20px;
     }
 
     .down-image img {
-        max-height: 220px;
+        max-height: 160px;
     }
 
     .down-image::after {
-        height: 42px;
+        height: 30px;
     }
 
     .right-side {
         height: auto;
-        padding: 28px 24px 36px;
+        border-radius: 0 0 14px 14px;
+        padding: 24px 24px 32px;
     }
 
     .verify h1 {
-        font-size: 28px;
+        font-size: 26px;
     }
 
     .verify-container {
-        margin: 36px 0 44px;
+        margin: 28px 0 32px;
     }
 }
 
@@ -231,17 +233,25 @@ button[type="submit"]:hover {
         padding: 8px;
     }
 
+    .overlay-image {
+        height: 64px;
+    }
+
+    .down-image img {
+        max-height: 130px;
+    }
+
     .verify h1 {
-        font-size: 25px;
+        font-size: 22px;
     }
 
     .verify p.subtitle {
-        font-size: 14px;
+        font-size: 13px;
     }
 
     .verify-container {
         gap: 12px;
-        margin: 28px 0 32px;
+        margin: 22px 0 26px;
     }
 
     .token {
@@ -251,6 +261,6 @@ button[type="submit"]:hover {
     }
 
     .right-side {
-        padding: 24px 16px 32px;
+        padding: 20px 16px 26px;
     }
 }

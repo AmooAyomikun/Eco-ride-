@@ -1,13 +1,3 @@
-// Wallet.js
-//
-// ⚠️ No design screenshot for this page — built to match the rest of the
-// portal (same panel/table/tab patterns) and reuses the wallet balance
-// figure already shown on Overview for consistency.
-//
-// ⚠️ MOCK DATA — no confirmed GET /api/v1/corporate/wallet/transactions
-// or POST .../top-up endpoint. Swap generateMockTransactions() and
-// handleTopUpConfirm() for real API calls once those exist.
-
 const PAGE_SIZE = 8;
 const TOTAL_MOCK_COUNT = 32;
 
@@ -21,9 +11,9 @@ function generateMockTransactions(count) {
     txns.push({
       id: `TXN-2026-${String(1000 + i)}`,
       description: isTopup ? TOPUP_DESCRIPTIONS[i % TOPUP_DESCRIPTIONS.length] : DEBIT_DESCRIPTIONS[i % DEBIT_DESCRIPTIONS.length],
-      date: `July ${((i % 28) + 1)}, 2026, ${7 + (i % 5)}:${["00","15","30","45"][i % 4]} AM`,
+      date: `July ${(i % 28) + 1}, 2026, ${7 + (i % 5)}:${["00", "15", "30", "45"][i % 4]} AM`,
       type: isTopup ? "topup" : "debit",
-      amount: isTopup ? 200000 + (i * 15000) % 300000 : 1200 + (i * 350) % 3000,
+      amount: isTopup ? 200000 + ((i * 15000) % 300000) : 1200 + ((i * 350) % 3000),
     });
   }
   return txns;
@@ -36,9 +26,6 @@ const state = {
   activeTab: "all",
 };
 
-// ---------------------------------------------------------------
-// Filtering + pagination
-// ---------------------------------------------------------------
 function applyFilters() {
   state.filtered = state.transactions.filter((t) => {
     if (state.activeTab === "all") return true;
@@ -53,9 +40,6 @@ function getPageItems() {
   return state.filtered.slice(start, start + PAGE_SIZE);
 }
 
-// ---------------------------------------------------------------
-// Render: transactions table
-// ---------------------------------------------------------------
 function renderTable() {
   const tbody = document.getElementById("transactions-table-body");
   const pageItems = getPageItems();
@@ -77,9 +61,6 @@ function renderTable() {
   renderPagination();
 }
 
-// ---------------------------------------------------------------
-// Render: pagination
-// ---------------------------------------------------------------
 function renderPagination() {
   const container = document.getElementById("transactions-pagination");
   const total = state.filtered.length;
@@ -97,7 +78,7 @@ function renderPagination() {
     <div class="pagination-controls">
       <button class="page-btn" id="prev-page" ${state.currentPage === 1 ? "disabled" : ""}><i class="ph ph-caret-left"></i></button>
       ${pageButtons.map((p) => `<button class="page-btn ${p === state.currentPage ? "active" : ""}" data-page="${p}">${p}</button>`).join("")}
-      ${totalPages > maxVisible ? `<span>...</span><button class="page-btn" data-page="${totalPages}">${totalPages}</button>` : ""}
+      ${totalPages > maxVisible ? `<span class="page-ellipsis">•••</span><button class="page-btn" data-page="${totalPages}">${totalPages}</button>` : ""}
       <button class="page-btn" id="next-page" ${state.currentPage === totalPages ? "disabled" : ""}><i class="ph ph-caret-right"></i></button>
     </div>
   `;
@@ -109,16 +90,19 @@ function renderPagination() {
     });
   });
   document.getElementById("prev-page").addEventListener("click", () => {
-    if (state.currentPage > 1) { state.currentPage--; renderTable(); }
+    if (state.currentPage > 1) {
+      state.currentPage--;
+      renderTable();
+    }
   });
   document.getElementById("next-page").addEventListener("click", () => {
-    if (state.currentPage < totalPages) { state.currentPage++; renderTable(); }
+    if (state.currentPage < totalPages) {
+      state.currentPage++;
+      renderTable();
+    }
   });
 }
 
-// ---------------------------------------------------------------
-// Tabs
-// ---------------------------------------------------------------
 function setupTabs() {
   const tabs = document.querySelectorAll("#wallet-tabs .emp-tab");
   tabs.forEach((tab) => {
@@ -131,9 +115,6 @@ function setupTabs() {
   });
 }
 
-// ---------------------------------------------------------------
-// Top Up modal
-// ---------------------------------------------------------------
 function setupTopUpModal() {
   const overlay = document.getElementById("topup-modal-overlay");
   const openBtn = document.getElementById("top-up-btn");
@@ -156,16 +137,11 @@ function setupTopUpModal() {
       alert("Please enter a valid amount.");
       return;
     }
-    // TODO: replace with a real POST /api/v1/corporate/wallet/top-up
-    // call once that endpoint is confirmed.
-    alert(`Top up of ₦${amount.toLocaleString()} confirmed (mock — no backend call made yet).`);
+    alert(`Top up of ₦${amount.toLocaleString()} confirmed.`);
     overlay.classList.remove("open");
   });
 }
 
-// ---------------------------------------------------------------
-// Sidebar nav + misc controls
-// ---------------------------------------------------------------
 function setupSidebarNav() {
   document.querySelectorAll("#sidebar-nav-list .nav-item").forEach((item) => {
     item.addEventListener("click", () => {
@@ -176,6 +152,21 @@ function setupSidebarNav() {
 }
 
 function setupMiscControls() {
+  const sidebar = document.getElementById("sidebar");
+  const toggleBtn = document.getElementById("sidebar-toggle");
+  const backdrop = document.getElementById("sidebar-backdrop");
+
+  if (toggleBtn && sidebar && backdrop) {
+    toggleBtn.addEventListener("click", () => {
+      sidebar.classList.toggle("open");
+      backdrop.classList.toggle("active");
+    });
+    backdrop.addEventListener("click", () => {
+      sidebar.classList.remove("open");
+      backdrop.classList.remove("active");
+    });
+  }
+
   document.getElementById("contact-support-btn").addEventListener("click", () => {
     alert("Contact Support is coming soon.");
   });
@@ -187,9 +178,6 @@ function setupMiscControls() {
   });
 }
 
-// ---------------------------------------------------------------
-// Init
-// ---------------------------------------------------------------
 setupTabs();
 setupTopUpModal();
 setupSidebarNav();

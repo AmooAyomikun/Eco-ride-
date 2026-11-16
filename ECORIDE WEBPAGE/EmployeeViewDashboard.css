@@ -400,20 +400,86 @@
 }
 
 @media (max-width: 640px) {
+  .emp-tabs {
+    overflow-x: auto;
+    white-space: nowrap;
+    gap: 16px;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .emp-tab {
+    flex-shrink: 0;
+    font-size: 13px;
+  }
+
   .emp-toolbar {
     flex-direction: column;
     align-items: stretch;
+    padding: 10px 12px;
+    gap: 10px;
+    margin-bottom: 16px;
   }
 
   .search-bar.small {
     max-width: 100%;
+    order: 0;
+  }
+
+  .search-bar.small input {
+    height: 36px;
+    font-size: 12px;
   }
 
   .emp-toolbar-right {
+    display: flex;
+    width: 100%;
+    gap: 8px;
     justify-content: space-between;
   }
 
+  .filter-dropdown {
+    flex: 1;
+  }
+
+  .filter-btn {
+    width: 100%;
+    justify-content: space-between;
+    padding: 7px 10px;
+    font-size: 11px;
+  }
+
+  .add-employee-btn {
+    padding: 7px 12px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
   .emp-table {
-    min-width: 600px;
+    min-width: 560px;
+  }
+
+  .emp-table th,
+  .emp-table td {
+    padding: 11px 12px;
+    font-size: 11.5px;
+  }
+
+  .emp-name-cell,
+  .trip-employee-cell,
+  .requested-by-cell {
+    font-size: 11.5px;
+  }
+
+  .table-pagination {
+    padding: 12px 14px;
+    font-size: 11px;
+  }
+
+  .page-btn,
+  .page-ellipsis {
+    min-width: 24px;
+    height: 24px;
+    font-size: 10.5px;
   }
 }

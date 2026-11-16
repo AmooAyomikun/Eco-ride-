@@ -250,36 +250,40 @@ button.load-users:hover {
         max-width: 100%;
         height: auto;
         border-radius: 14px 14px 0 0;
-        padding: 20px 0 0;
+        padding: 14px 0 0;
     }
 
     .overlay-image {
-        height: 110px;
+        height: 76px;
         margin-top: 0;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
     }
 
     .down-image {
-        max-width: 420px;
-        padding-bottom: 28px;
+        max-width: 340px;
+        padding-bottom: 18px;
     }
 
     .down-image img {
-        max-height: 220px;
+        max-height: 145px;
     }
 
     .down-image::after {
-        height: 42px;
+        height: 28px;
     }
 
     .right-side {
         height: auto;
         border-radius: 0 0 14px 14px;
-        padding: 28px 24px 36px;
+        padding: 20px 24px 28px;
+    }
+
+    .Header {
+        margin-bottom: 14px;
     }
 
     .Header h2 {
-        font-size: 28px;
+        font-size: 26px;
     }
 }
 
@@ -288,15 +292,35 @@ button.load-users:hover {
         padding: 8px;
     }
 
+    .overlay-image {
+        height: 60px;
+    }
+
+    .down-image img {
+        max-height: 115px;
+    }
+
+    .down-image {
+        padding-bottom: 14px;
+    }
+
+    .down-image::after {
+        height: 22px;
+    }
+
     .Header h2 {
-        font-size: 25px;
+        font-size: 22px;
     }
 
     .subtitle {
-        font-size: 14px;
+        font-size: 13px;
     }
 
     .right-side {
-        padding: 24px 16px 32px;
+        padding: 16px 16px 22px;
+    }
+
+    .reg-con {
+        gap: 7px;
     }
 }
