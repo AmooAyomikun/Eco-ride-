@@ -1,27 +1,47 @@
-const MOCK_DATA = {
-  reportTypes: [
-    { icon: "ph-chart-bar", iconType: "ph", iconBg: "#dcfce7", iconColor: "#16a34a", title: "Trips Reports", sub: "View trips analytics" },
-    { icon: "ph-wallet", iconType: "ph-fill", iconBg: "#fef9c3", iconColor: "#eab308", title: "Spend Report", sub: "Track spending" },
-    { icon: "ph-users", iconType: "ph-fill", iconBg: "#cffafe", iconColor: "#06b6d4", title: "Employee Report", sub: "Employee Insights" },
-    { icon: "ph-file-text", iconType: "ph", iconBg: "#fae8ff", iconColor: "#d946ef", title: "Custom Report", sub: "Build custom report" },
-  ],
+const API_BASE = window.location.hostname.endsWith("vercel.app")
+  ? "/api/v1"
+  : "https://ecoride-backend-0ll4.onrender.com/api/v1";
 
-  recentReports: [
-    { title: "Trip Report - May 2024", generated: "Generated on May 21, 2024 . 10:30 AM" },
-    { title: "Trip Report - May 2024", generated: "Generated on May 21, 2024 . 10:30 AM" },
-    { title: "Trip Report - May 2024", generated: "Generated on May 21, 2024 . 10:30 AM" },
-    { title: "Trip Report - May 2024", generated: "Generated on May 21, 2024 . 10:30 AM" },
-    { title: "Trip Report - May 2024", generated: "Generated on May 21, 2024 . 10:30 AM" },
-  ],
+function getAuthHeaders(extra = {}) {
+  const token = localStorage.getItem("ecoride_token");
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
+}
 
-  summaryPeriod: "May 1– May 21,2024",
+function hydrateUserHeader() {
+  try {
+    const raw = localStorage.getItem("ecoride_user");
+    if (!raw) return;
+    const user = JSON.parse(raw);
+    const companyName = user.companyName || user.fullName || user.email;
+    if (companyName) {
+      document.querySelectorAll(".company-name, .admin-name").forEach((el) => {
+        el.textContent = companyName;
+      });
+    }
+  } catch (err) {
+    console.error("Error reading stored user:", err);
+  }
+}
 
+const REPORT_TYPES = [
+  { icon: "ph-chart-bar", iconType: "ph", iconBg: "#dcfce7", iconColor: "#16a34a", title: "Trips Reports", sub: "View trips analytics" },
+  { icon: "ph-wallet", iconType: "ph-fill", iconBg: "#fef9c3", iconColor: "#eab308", title: "Spend Report", sub: "Track spending" },
+  { icon: "ph-users", iconType: "ph-fill", iconBg: "#cffafe", iconColor: "#06b6d4", title: "Employee Report", sub: "Employee Insights" },
+  { icon: "ph-file-text", iconType: "ph", iconBg: "#fae8ff", iconColor: "#d946ef", title: "Custom Report", sub: "Build custom report" },
+];
+
+const state = {
+  recentReports: [],
+  summaryPeriod: "Current Period",
   summary: [
-    { icon: "ph-car", iconType: "ph", label: "Total Trips", value: "642", deltaHighlight: "+12.5%", deltaText: "vs last period" },
-    { icon: "ph-wallet", iconType: "ph", label: "Total Spent", value: "N2,568,890", deltaHighlight: "+8.4%", deltaText: "vs last period" },
-    { icon: "ph-users", iconType: "ph-fill", label: "Active Employees", value: "124", deltaHighlight: "+3.2%", deltaText: "vs last period" },
-    { icon: "ph-file-text", iconType: "ph", label: "Total Bookings", value: "318", deltaHighlight: "+10.6%", deltaText: "vs last period" },
-    { icon: "ph-star", iconType: "ph-fill", label: "Average Rating", value: "4.8", deltaHighlight: "+0.2%", deltaText: "vs last period" },
+    { icon: "ph-car", iconType: "ph", label: "Total Trips", value: "0", deltaHighlight: "0%", deltaText: "vs last period" },
+    { icon: "ph-wallet", iconType: "ph", label: "Total Spent", value: "₦0", deltaHighlight: "0%", deltaText: "vs last period" },
+    { icon: "ph-users", iconType: "ph-fill", label: "Active Employees", value: "0", deltaHighlight: "0%", deltaText: "vs last period" },
+    { icon: "ph-file-text", iconType: "ph", label: "Total Bookings", value: "0", deltaHighlight: "0%", deltaText: "vs last period" },
+    { icon: "ph-star", iconType: "ph-fill", label: "Average Rating", value: "0.0", deltaHighlight: "0%", deltaText: "vs last period" },
   ],
 };
 
@@ -48,6 +68,11 @@ function renderReportTypeCards(types) {
 
 function renderRecentReports(reports) {
   const list = document.getElementById("recent-reports-list");
+  if (!Array.isArray(reports) || reports.length === 0) {
+    list.innerHTML = `<li class="recent-report-item" style="justify-content:center;color:#6b7280;padding:24px 0;font-size:13px;">No reports generated yet. Use Quick Filters to generate a report.</li>`;
+    return;
+  }
+
   list.innerHTML = reports.map((r, i) => `
     <li class="recent-report-item">
       <span class="recent-report-icon"><i class="ph ph-file-text"></i></span>
@@ -95,7 +120,13 @@ function setupGenerateReport() {
     const department = document.getElementById("filter-department").value;
     const reportType = document.getElementById("filter-report-type").value;
     const dateRange = document.getElementById("filter-date-range").value;
-    alert(`Generating "${reportType}" for ${department}, ${dateRange} — coming soon.`);
+    const nowLabel = new Date().toLocaleString();
+
+    state.recentReports.unshift({
+      title: `${reportType} - ${department}`,
+      generated: `Generated on ${nowLabel} (${dateRange})`,
+    });
+    renderRecentReports(state.recentReports);
   });
 }
 
@@ -128,6 +159,8 @@ function setupMiscControls() {
     alert("Contact Support is coming soon.");
   });
   document.getElementById("logout-btn").addEventListener("click", () => {
+    localStorage.removeItem("ecoride_token");
+    localStorage.removeItem("ecoride_user");
     window.location.href = "Login.html";
   });
   document.getElementById("view-all-reports-btn").addEventListener("click", () => {
@@ -138,9 +171,75 @@ function setupMiscControls() {
   });
 }
 
-renderReportTypeCards(MOCK_DATA.reportTypes);
-renderRecentReports(MOCK_DATA.recentReports);
-renderSummary(MOCK_DATA);
+async function fetchReportsData() {
+  try {
+    const [dashRes, empRes, bookingsRes, historyRes] = await Promise.allSettled([
+      fetch(`${API_BASE}/corporate/dashboard`, { method: "GET", headers: getAuthHeaders(), credentials: "include" }),
+      fetch(`${API_BASE}/corporate/employees`, { method: "GET", headers: getAuthHeaders(), credentials: "include" }),
+      fetch(`${API_BASE}/bookings`, { method: "GET", headers: getAuthHeaders(), credentials: "include" }),
+      fetch(`${API_BASE}/bookings/history`, { method: "GET", headers: getAuthHeaders(), credentials: "include" }),
+    ]);
+
+    let totalTrips = 0;
+    let totalSpent = 0;
+    let activeEmployees = 0;
+    let totalBookings = 0;
+    let avgRating = "0.0";
+
+    if (dashRes.status === "fulfilled" && dashRes.value.ok) {
+      const dashJson = await dashRes.value.json();
+      const d = dashJson.data || dashJson;
+      if (d) {
+        totalTrips = Number(d.totalTrips ?? d.todayTrips ?? 0);
+        totalSpent = Number(d.monthlySpend ?? d.totalSpend ?? 0);
+        activeEmployees = Number(d.activeEmployees ?? d.totalEmployees ?? 0);
+        totalBookings = Number(d.totalBookings ?? 0);
+        if (d.averageRating !== undefined) avgRating = Number(d.averageRating).toFixed(1);
+      }
+    }
+
+    if (empRes.status === "fulfilled" && empRes.value.ok) {
+      const empJson = await empRes.value.json();
+      if (Array.isArray(empJson.data)) {
+        activeEmployees = empJson.data.filter(
+          (e) => String(e.status || "ACTIVE").toLowerCase() !== "inactive"
+        ).length;
+      }
+    }
+
+    if (bookingsRes.status === "fulfilled" && bookingsRes.value.ok) {
+      const bJson = await bookingsRes.value.json();
+      const bList = Array.isArray(bJson.data) ? bJson.data : Array.isArray(bJson) ? bJson : [];
+      totalBookings = Math.max(totalBookings, bList.length);
+    }
+
+    if (historyRes.status === "fulfilled" && historyRes.value.ok) {
+      const hJson = await historyRes.value.json();
+      const hList = Array.isArray(hJson.data) ? hJson.data : Array.isArray(hJson) ? hJson : [];
+      totalTrips = Math.max(totalTrips, hList.length);
+      if (totalSpent === 0 && hList.length > 0) {
+        totalSpent = hList.reduce((sum, t) => sum + (Number(t.amount || t.fare || 0)), 0);
+      }
+    }
+
+    state.summary = [
+      { icon: "ph-car", iconType: "ph", label: "Total Trips", value: totalTrips.toLocaleString(), deltaHighlight: "0%", deltaText: "vs last period" },
+      { icon: "ph-wallet", iconType: "ph", label: "Total Spent", value: `₦${totalSpent.toLocaleString()}`, deltaHighlight: "0%", deltaText: "vs last period" },
+      { icon: "ph-users", iconType: "ph-fill", label: "Active Employees", value: activeEmployees.toLocaleString(), deltaHighlight: "0%", deltaText: "vs last period" },
+      { icon: "ph-file-text", iconType: "ph", label: "Total Bookings", value: totalBookings.toLocaleString(), deltaHighlight: "0%", deltaText: "vs last period" },
+      { icon: "ph-star", iconType: "ph-fill", label: "Average Rating", value: avgRating, deltaHighlight: "0%", deltaText: "vs last period" },
+    ];
+    renderSummary(state);
+  } catch (err) {
+    console.error("Failed to fetch reports summary:", err);
+  }
+}
+
+hydrateUserHeader();
+renderReportTypeCards(REPORT_TYPES);
+renderRecentReports(state.recentReports);
+renderSummary(state);
 setupGenerateReport();
 setupSidebarNav();
 setupMiscControls();
+fetchReportsData();
