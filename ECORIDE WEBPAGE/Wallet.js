@@ -180,8 +180,6 @@ function setupMiscControls() {
   });
 }
 
-const API_BASE = "https://ecoride-backend-0ll4.onrender.com/api/v1";
-
 async function fetchWallet() {
   try {
     const res = await fetch(`${API_BASE}/wallets`, {

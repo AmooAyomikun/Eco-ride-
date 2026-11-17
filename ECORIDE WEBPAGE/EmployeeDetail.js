@@ -246,8 +246,6 @@ function setupMiscControls() {
   });
 }
 
-const API_BASE = "https://ecoride-backend-0ll4.onrender.com/api/v1";
-
 function renderEmployeeView(employeeData) {
   renderProfile(employeeData);
   renderSummary(Array.isArray(employeeData.summary) && employeeData.summary.length ? employeeData.summary : getEmployeeById("EMP-2026-004").summary);

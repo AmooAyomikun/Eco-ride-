@@ -1,4 +1,4 @@
-const API_BASE = "https://ecoride-backend-0ll4.onrender.com/docs/index.html";
+const API_BASE = "https://ecoride-backend-0ll4.onrender.com/api/v1";
 
 const MOCK_DATA = {
   stats: [
@@ -293,8 +293,6 @@ function setupMiscControls() {
     alert("Date range picker is coming soon.");
   });
 }
-
-const API_BASE = "https://ecoride-backend-0ll4.onrender.com/api/v1";
 
 function renderDashboard(data) {
   renderStatCards(Array.isArray(data.stats) && data.stats.length ? data.stats : MOCK_DATA.stats);
