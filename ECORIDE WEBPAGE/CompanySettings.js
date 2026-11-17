@@ -10,12 +10,32 @@ function getAuthHeaders(extra = {}) {
   };
 }
 
-const MOCK_VERIFICATION_STATUS = "PENDING";
+function hydrateUserHeader() {
+  try {
+    const raw = localStorage.getItem("ecoride_user");
+    if (!raw) return;
+    const user = JSON.parse(raw);
+    const companyName = user.companyName || user.fullName || user.email;
+    if (companyName) {
+      document.querySelectorAll(".company-name, .admin-name").forEach((el) => {
+        el.textContent = companyName;
+      });
+      const nameInput = document.getElementById("settings-company-name");
+      if (nameInput && user.companyName) nameInput.value = user.companyName;
+      const rcInput = document.getElementById("settings-rc-number");
+      if (rcInput && user.rcNumber) rcInput.value = user.rcNumber;
+      const emailInput = document.getElementById("settings-company-email");
+      if (emailInput && user.email) emailInput.value = user.email;
+    }
+  } catch (err) {
+    console.error("Error reading stored user:", err);
+  }
+}
 
-const MOCK_DOCUMENTS = [
+const DEFAULT_DOCUMENTS = [
   { key: "cacCertificate", name: "CAC Certificate", sub: "Not uploaded yet" },
   { key: "taxCertificate", name: "Tax Certificate", sub: "Not uploaded yet" },
-  { key: "businessLicense", name: "Business License", sub: "Uploaded — pending review" },
+  { key: "businessLicense", name: "Business License", sub: "Not uploaded yet" },
 ];
 
 const MOCK_NOTIFICATIONS = [
@@ -25,18 +45,13 @@ const MOCK_NOTIFICATIONS = [
   { key: "employee-invites", title: "Employee Invite Status", sub: "Notify when an invited employee joins", on: true },
 ];
 
-const MOCK_ADMINS = [
-  { name: "Tunde Adewale", email: "tunde@acme.com", role: "Super Admin" },
-  { name: "Grace Eze", email: "grace@acme.com", role: "Admin" },
-];
-
 function renderVerificationBanner(status) {
   const banner = document.getElementById("verification-banner");
-  const isApproved = status === "APPROVED";
+  const isApproved = String(status || "").toUpperCase() === "APPROVED";
   banner.className = `settings-verification-banner ${isApproved ? "approved" : ""}`;
   banner.innerHTML = isApproved
     ? `<i class="ph-fill ph-check-circle"></i> Your company profile is verified.`
-    : `<i class="ph-fill ph-clock"></i> Your company profile is pending verification. Some features may be limited until approved.`;
+    : `<i class="ph-fill ph-clock"></i> Your company profile is pending verification. Upload your corporate documents below.`;
 }
 
 function setupTabs() {
@@ -82,13 +97,18 @@ function renderDocuments(docs) {
       fileInput.addEventListener("change", async () => {
         const file = fileInput.files[0];
         if (!file) return;
+        btn.textContent = "Uploading...";
+        btn.disabled = true;
         try {
           const data = await uploadCorporateDocument(btn.dataset.key, file);
           alert(data.message || `${file.name} uploaded successfully.`);
-          fetchCorporateDocuments();
+          await fetchCorporateDocuments();
         } catch (err) {
           console.error("Error uploading document:", err);
-          alert(`${file.name} selected and queued for verification.`);
+          alert("Error uploading document. Please make sure you are logged in.");
+        } finally {
+          btn.textContent = "Upload";
+          btn.disabled = false;
         }
       });
       fileInput.click();
@@ -121,16 +141,24 @@ function setupNotificationsSave() {
   });
 }
 
-function renderAdmins(admins) {
+function renderAdmins() {
   const tbody = document.getElementById("admins-table-body");
-  tbody.innerHTML = admins.map((a) => `
+  let adminName = "Corporate Admin";
+  let adminEmail = "—";
+  try {
+    const user = JSON.parse(localStorage.getItem("ecoride_user") || "{}");
+    if (user.companyName || user.fullName) adminName = user.companyName || user.fullName;
+    if (user.email) adminEmail = user.email;
+  } catch (e) {}
+
+  tbody.innerHTML = `
     <tr>
-      <td>${a.name}</td>
-      <td class="emp-email">${a.email}</td>
-      <td><span class="role-badge ${a.role === "Super Admin" ? "admin" : ""}">${a.role}</span></td>
+      <td>${adminName}</td>
+      <td class="emp-email">${adminEmail}</td>
+      <td><span class="role-badge admin">CORPORATE_ADMIN</span></td>
       <td><button class="row-actions-btn"><span class="dots-outline"><span></span><span></span><span></span></span></button></td>
     </tr>
-  `).join("");
+  `;
 }
 
 function setupInviteAdmin() {
@@ -186,7 +214,12 @@ async function fetchCorporateProfile() {
     const p = result.data || result;
 
     if (res.ok && p) {
-      if (p.companyName) document.getElementById("settings-company-name").value = p.companyName;
+      if (p.companyName) {
+        document.getElementById("settings-company-name").value = p.companyName;
+        document.querySelectorAll(".company-name, .admin-name").forEach((el) => {
+          el.textContent = p.companyName;
+        });
+      }
       if (p.rcNumber) document.getElementById("settings-rc-number").value = p.rcNumber;
       if (p.companyPhone) document.getElementById("settings-company-phone").value = p.companyPhone;
       if (p.companyAddress) document.getElementById("settings-company-address").value = p.companyAddress;
@@ -220,7 +253,7 @@ function setupProfileSave() {
         }),
       });
 
-      if (res.status === 404) {
+      if (res.status === 404 || res.status === 400) {
         res = await fetch(`${API_BASE}/corporate/profile`, {
           method: "POST",
           headers: getAuthHeaders({ "Content-Type": "application/json" }),
@@ -230,10 +263,11 @@ function setupProfileSave() {
       }
 
       const data = await res.json();
-      alert(data.message || "Company profile updated successfully.");
+      alert(data.message || "Company profile updated on backend.");
+      fetchCorporateProfile();
     } catch (err) {
       console.error("Error updating profile:", err);
-      alert("Company profile changes saved.");
+      alert("Failed to update profile. Please check your login session.");
     }
   });
 }
@@ -251,12 +285,12 @@ async function fetchCorporateDocuments() {
     const result = await res.json();
     const d = result.data || result;
 
-    if (res.ok && d && (d.id || d.verificationStatus || d.cacCertificate)) {
+    if (res.ok && d && (d.id || d.verificationStatus || d.cacCertificate || d.taxCertificate || d.businessLicense)) {
       hasExistingDocuments = true;
       renderVerificationBanner(d.verificationStatus || "PENDING");
-      const updatedDocs = MOCK_DOCUMENTS.map((doc) => ({
+      const updatedDocs = DEFAULT_DOCUMENTS.map((doc) => ({
         ...doc,
-        sub: d[doc.key] ? "Uploaded — pending review" : doc.sub,
+        sub: d[doc.key] ? "Uploaded — pending review" : "Not uploaded yet",
       }));
       renderDocuments(updatedDocs);
     }
@@ -282,10 +316,11 @@ async function uploadCorporateDocument(fieldKey, file) {
   return res.json();
 }
 
-renderVerificationBanner(MOCK_VERIFICATION_STATUS);
-renderDocuments(MOCK_DOCUMENTS);
+hydrateUserHeader();
+renderVerificationBanner("PENDING");
+renderDocuments(DEFAULT_DOCUMENTS);
 renderNotificationToggles(MOCK_NOTIFICATIONS);
-renderAdmins(MOCK_ADMINS);
+renderAdmins();
 setupTabs();
 setupProfileSave();
 setupNotificationsSave();

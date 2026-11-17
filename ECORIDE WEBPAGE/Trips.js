@@ -1,47 +1,76 @@
-const PAGE_SIZE = 7;
-const TOTAL_MOCK_COUNT = 124;
+const API_BASE = window.location.hostname.endsWith("vercel.app")
+  ? "/api/v1"
+  : "https://ecoride-backend-0ll4.onrender.com/api/v1";
 
-const INITIAL_TRIPS = [
-  { id: "TRP-2024-0647", date: "July 22, 2026", time: "8:45 AM", from: "Ikeja", to: "VI", employee: "Sarah Johnson", status: "completed", amount: 4200 },
-  { id: "TRP-2024-0648", date: "July 22, 2026", time: "8:45 AM", from: "Ikeja", to: "VI", employee: "Michael Ade", status: "completed", amount: 3150 },
-  { id: "TRP-2024-0649", date: "July 22, 2026", time: "7:15 AM", from: "Ikeja", to: "VI", employee: "Linda Mo", status: "completed", amount: 1900 },
-  { id: "TRP-2024-0650", date: "July 22, 2026", time: "9:25 AM", from: "Ikeja", to: "VI", employee: "James Okafor", status: "completed", amount: 2000 },
-  { id: "TRP-2024-0651", date: "July 22, 2026", time: "8:30 AM", from: "Ikeja", to: "VI", employee: "Tolu Bamidele", status: "completed", amount: 3200 },
-  { id: "TRP-2024-0652", date: "July 22, 2026", time: "7:45 AM", from: "Ikeja", to: "VI", employee: "Esther Bright", status: "cancelled", amount: 0 },
-  { id: "TRP-2024-0653", date: "July 22, 2026", time: "9:00 AM", from: "Ikeja", to: "VI", employee: "David Wilson", status: "completed", amount: 1600 },
-];
-
-const EMPLOYEES = ["Sarah Johnson", "Michael Ade", "Linda Mo", "James Okafor", "Tolu Bamidele", "Esther Bright", "David Wilson"];
-const STATUSES = ["completed", "completed", "completed", "completed", "completed", "cancelled", "upcoming", "ongoing"];
-const AMOUNTS = [4200, 3150, 1900, 2000, 3200, 0, 1600, 2750];
-
-function generateMockTrips(count) {
-  const trips = [...INITIAL_TRIPS];
-  const times = ["8:45 AM", "7:15 AM", "9:25 AM", "8:30 AM", "7:45 AM", "9:00 AM"];
-
-  for (let i = trips.length; i < count; i++) {
-    const status = STATUSES[i % STATUSES.length];
-    trips.push({
-      id: `TRP-2024-${String(647 + i).padStart(4, "0")}`,
-      date: "July 22, 2026",
-      time: times[i % times.length],
-      from: "Ikeja",
-      to: "VI",
-      employee: EMPLOYEES[i % EMPLOYEES.length],
-      status,
-      amount: status === "cancelled" ? 0 : AMOUNTS[i % AMOUNTS.length],
-    });
-  }
-  return trips;
+function getAuthHeaders(extra = {}) {
+  const token = localStorage.getItem("ecoride_token");
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
 }
 
+function hydrateUserHeader() {
+  try {
+    const raw = localStorage.getItem("ecoride_user");
+    if (!raw) return;
+    const user = JSON.parse(raw);
+    const companyName = user.companyName || user.fullName || user.email;
+    if (companyName) {
+      document.querySelectorAll(".company-name, .admin-name").forEach((el) => {
+        el.textContent = companyName;
+      });
+    }
+  } catch (err) {
+    console.error("Error reading stored user:", err);
+  }
+}
+
+const PAGE_SIZE = 7;
+
 const state = {
-  trips: generateMockTrips(TOTAL_MOCK_COUNT),
+  trips: [],
   filtered: [],
   currentPage: 1,
   activeTab: "all",
   searchTerm: "",
 };
+
+async function fetchTrips() {
+  try {
+    const res = await fetch(`${API_BASE}/bookings/history`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+      credentials: "include",
+    });
+    const result = await res.json();
+    const list = Array.isArray(result.data)
+      ? result.data
+      : Array.isArray(result.bookings)
+      ? result.bookings
+      : Array.isArray(result.trips)
+      ? result.trips
+      : Array.isArray(result)
+      ? result
+      : [];
+
+    if (res.ok) {
+      state.trips = list.map((trip, i) => ({
+        id: trip.id || `TRP-${i + 1}`,
+        date: trip.date || (trip.createdAt ? new Date(trip.createdAt).toLocaleDateString() : "—"),
+        time: trip.time || (trip.createdAt ? new Date(trip.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""),
+        from: trip.pickupLocation || trip.from || "—",
+        to: trip.dropoffLocation || trip.to || "—",
+        employee: trip.passenger?.fullName || trip.employee || "Employee",
+        status: String(trip.status || "completed").toLowerCase(),
+        amount: Number(trip.amount ?? trip.fare ?? 0),
+      }));
+      applyFilters();
+    }
+  } catch (err) {
+    console.error("Error fetching trips:", err);
+  }
+}
 
 function applyFilters() {
   state.filtered = state.trips.filter((trip) => {
@@ -72,11 +101,11 @@ function renderTable() {
   const pageItems = getPageItems();
 
   if (pageItems.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><i class="ph ph-car"></i><p>No trips match this view.</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><i class="ph ph-car"></i><p>No trips recorded in your corporate account yet.</p></div></td></tr>`;
   } else {
     tbody.innerHTML = pageItems.map((trip) => `
       <tr data-id="${trip.id}">
-        <td class="trip-date-cell">${trip.date}. &nbsp;${trip.time}</td>
+        <td class="trip-date-cell">${trip.date}${trip.time ? `. &nbsp;${trip.time}` : ""}</td>
         <td><span class="route-cell">${trip.from} <i class="ph ph-arrow-right"></i> ${trip.to}</span></td>
         <td>
           <div class="trip-employee-cell">
@@ -103,21 +132,20 @@ function renderPagination() {
   const container = document.getElementById("trips-pagination");
   const total = state.filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const shown = Math.min(PAGE_SIZE, total - (state.currentPage - 1) * PAGE_SIZE);
+  const shown = total === 0 ? 0 : Math.min(PAGE_SIZE, total - (state.currentPage - 1) * PAGE_SIZE);
 
   const pageButtons = [];
   const maxVisible = 3;
   for (let p = 1; p <= Math.min(maxVisible, totalPages); p++) {
     pageButtons.push(p);
   }
-  const lastLabel = totalPages > maxVisible ? 10 : totalPages;
 
   container.innerHTML = `
     <span>Showing ${Math.max(0, shown)} of ${total} trips</span>
     <div class="pagination-controls">
       <button class="page-btn" id="prev-page" ${state.currentPage === 1 ? "disabled" : ""}><i class="ph ph-caret-left"></i></button>
       ${pageButtons.map((p) => `<button class="page-btn ${p === state.currentPage ? "active" : ""}" data-page="${p}">${p}</button>`).join("")}
-      ${totalPages > maxVisible ? `<span class="page-ellipsis">•••</span><button class="page-btn ${state.currentPage === totalPages ? "active" : ""}" data-page="${totalPages}">${lastLabel}</button>` : ""}
+      ${totalPages > maxVisible ? `<span class="page-ellipsis">•••</span><button class="page-btn ${state.currentPage === totalPages ? "active" : ""}" data-page="${totalPages}">${totalPages}</button>` : ""}
       <button class="page-btn" id="next-page" ${state.currentPage === totalPages ? "disabled" : ""}><i class="ph ph-caret-right"></i></button>
     </div>
   `;
@@ -185,6 +213,8 @@ function setupMiscControls() {
     alert("Contact Support is coming soon.");
   });
   document.getElementById("logout-btn").addEventListener("click", () => {
+    localStorage.removeItem("ecoride_token");
+    localStorage.removeItem("ecoride_user");
     window.location.href = "Login.html";
   });
   document.getElementById("trip-search").addEventListener("input", (e) => {
@@ -193,7 +223,9 @@ function setupMiscControls() {
   });
 }
 
+hydrateUserHeader();
 setupTabs();
 setupSidebarNav();
 setupMiscControls();
 applyFilters();
+fetchTrips();

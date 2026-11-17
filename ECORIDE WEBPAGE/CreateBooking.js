@@ -10,23 +10,29 @@ function getAuthHeaders(extra = {}) {
   };
 }
 
-const MOCK_EMPLOYEES = [
-  "Sarah Johnson",
-  "Michael Ade",
-  "Linda Mo",
-  "James Okafor",
-  "Tolu Bamidele",
-  "Esther Bright",
-  "David Wilson",
-  "Grace Eze",
-];
-
 const state = {
   currentStep: 1,
-  route: { pickup: "Lekki Phase 1, Lagos", dropoff: "Victoria Island, Lagos", stops: [] },
-  dateTime: { date: "May 24, 2024", time: "8:00AM", seats: 2 },
-  selectedPassengers: ["Sarah Johnson", "Michael Ade"],
+  route: { pickup: "", dropoff: "", stops: [] },
+  dateTime: { date: "", time: "8:00AM", seats: 1 },
+  employees: [],
+  selectedPassengers: [],
 };
+
+async function fetchCorporateEmployees() {
+  try {
+    const res = await fetch(`${API_BASE}/corporate/employees`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+      credentials: "include",
+    });
+    const result = await res.json();
+    if (res.ok && result.success && Array.isArray(result.data)) {
+      state.employees = result.data.map((emp) => emp.user?.fullName || emp.fullName || emp.name || "Employee");
+    }
+  } catch (err) {
+    console.error("Failed to fetch employees for booking:", err);
+  }
+}
 
 function goToStep(stepNum) {
   document.querySelectorAll(".wizard-step-content").forEach((el) => {
@@ -97,7 +103,12 @@ function renderPassengerPicker() {
     `Select up to ${seats} passenger${seats === 1 ? "" : "s"} (matches seats requested in step 1).`;
 
   const picker = document.getElementById("passenger-picker");
-  picker.innerHTML = MOCK_EMPLOYEES.map((name) => `
+  if (state.employees.length === 0) {
+    picker.innerHTML = `<p style="color:#6b7280;font-size:13px;">No corporate employees found yet. Add an employee first or proceed to review.</p>`;
+    return;
+  }
+
+  picker.innerHTML = state.employees.map((name) => `
     <div class="passenger-option ${state.selectedPassengers.includes(name) ? "selected" : ""}" data-name="${name}">
       <img src="Assets/Driver.jpg" alt="${name}">
       <span class="passenger-option-name">${name}</span>
@@ -130,7 +141,7 @@ function togglePassenger(name) {
 }
 
 function validateStep2() {
-  if (state.selectedPassengers.length === 0) {
+  if (state.employees.length > 0 && state.selectedPassengers.length === 0) {
     alert("Please select at least one passenger.");
     return false;
   }
@@ -174,12 +185,16 @@ async function handleConfirmBooking() {
       body: JSON.stringify(payload),
     });
     const data = await res.json();
+    if (!res.ok) {
+      alert(data.message || data.error || "Could not create booking.");
+      return;
+    }
     alert(data.message || "Booking created successfully!");
+    window.location.href = "Bookings.html";
   } catch (err) {
     console.error("Create booking error:", err);
-    alert("Booking confirmed!");
+    alert("Network error while creating booking. Please try again.");
   }
-  window.location.href = "Bookings.html";
 }
 
 function setupWizardNav() {
@@ -238,3 +253,4 @@ setupAddStop();
 setupWizardNav();
 setupSidebarNav();
 setupMiscControls();
+fetchCorporateEmployees();

@@ -10,44 +10,26 @@ function getAuthHeaders(extra = {}) {
   };
 }
 
-const PAGE_SIZE = 7;
-const TOTAL_MOCK_COUNT = 18;
-
-const INITIAL_BOOKINGS = [
-  { id: "BK-2026-0561", from: "Ikeja", to: "VI", date: "July 22, 2026", time: "8:45 AM", requestedBy: "Sarah Johnson", seats: 3, status: "approved" },
-  { id: "BK-2026-0562", from: "Ikeja", to: "VI", date: "July 22, 2026", time: "8:45 AM", requestedBy: "Michael Ade", seats: 1, status: "approved" },
-  { id: "BK-2026-0562", from: "Ikeja", to: "VI", date: "July 22, 2026", time: "7:15 AM", requestedBy: "Linda Mo", seats: 4, status: "approved" },
-  { id: "BK-2026-0563", from: "Ikeja", to: "VI", date: "July 22, 2026", time: "9:25 AM", requestedBy: "James Okafor", seats: 2, status: "approved" },
-  { id: "BK-2026-0564", from: "Ikeja", to: "VI", date: "July 22, 2026", time: "8:30 AM", requestedBy: "Tolu Bamidele", seats: 1, status: "approved" },
-  { id: "BK-2026-0565", from: "Ikeja", to: "VI", date: "July 22, 2026", time: "7:45 AM", requestedBy: "Esther Bright", seats: 2, status: "cancelled" },
-  { id: "BK-2026-05626", from: "Ikeja", to: "VI", date: "July 22, 2026", time: "9:00 AM", requestedBy: "David Wilson", seats: 3, status: "approved" },
-];
-
-const REQUESTERS = ["Sarah Johnson", "Michael Ade", "Linda Mo", "James Okafor", "Tolu Bamidele", "Esther Bright", "David Wilson"];
-const STATUSES = ["approved", "approved", "approved", "approved", "approved", "cancelled", "pending"];
-const SEATS = [3, 1, 4, 2, 1, 2, 3];
-
-function generateMockBookings(count) {
-  const bookings = [...INITIAL_BOOKINGS];
-  const times = ["8:45 AM", "7:15 AM", "9:25 AM", "8:30 AM", "7:45 AM", "9:00 AM"];
-
-  for (let i = bookings.length; i < count; i++) {
-    bookings.push({
-      id: `BK-2026-${String(561 + i).padStart(4, "0")}`,
-      from: "Ikeja",
-      to: "VI",
-      date: "July 22, 2026",
-      time: times[i % times.length],
-      requestedBy: REQUESTERS[i % REQUESTERS.length],
-      seats: SEATS[i % SEATS.length],
-      status: STATUSES[i % STATUSES.length],
-    });
+function hydrateUserHeader() {
+  try {
+    const raw = localStorage.getItem("ecoride_user");
+    if (!raw) return;
+    const user = JSON.parse(raw);
+    const companyName = user.companyName || user.fullName || user.email;
+    if (companyName) {
+      document.querySelectorAll(".company-name, .admin-name").forEach((el) => {
+        el.textContent = companyName;
+      });
+    }
+  } catch (err) {
+    console.error("Error reading stored user:", err);
   }
-  return bookings;
 }
 
+const PAGE_SIZE = 7;
+
 const state = {
-  bookings: generateMockBookings(TOTAL_MOCK_COUNT),
+  bookings: [],
   filtered: [],
   currentPage: 1,
   activeTab: "all",
@@ -63,17 +45,24 @@ async function fetchBookings() {
       credentials: "include",
     });
     const result = await res.json();
-    const list = Array.isArray(result.data) ? result.data : Array.isArray(result.bookings) ? result.bookings : [];
-    if (res.ok && list.length > 0) {
+    const list = Array.isArray(result.data)
+      ? result.data
+      : Array.isArray(result.bookings)
+      ? result.bookings
+      : Array.isArray(result)
+      ? result
+      : [];
+
+    if (res.ok) {
       state.bookings = list.map((b, i) => ({
-        id: b.id || b.bookingId || `BK-2026-${String(561 + i).padStart(4, "0")}`,
-        from: b.pickupLocation || b.from || "Ikeja",
-        to: b.dropoffLocation || b.to || "VI",
-        date: b.date || "July 22, 2026",
-        time: b.time || "8:45 AM",
-        requestedBy: b.passenger?.fullName || b.requestedBy || "Sarah Johnson",
-        seats: b.seats || b.seatsBooked || 2,
-        status: String(b.status || "approved").toLowerCase(),
+        id: b.id || b.bookingId || `BK-${i + 1}`,
+        from: b.pickupLocation || b.from || "—",
+        to: b.dropoffLocation || b.to || "—",
+        date: b.date || (b.createdAt ? new Date(b.createdAt).toLocaleDateString() : "—"),
+        time: b.time || (b.createdAt ? new Date(b.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""),
+        requestedBy: b.passenger?.fullName || b.requestedBy || "Employee",
+        seats: b.seats || b.seatsBooked || 1,
+        status: String(b.status || "pending").toLowerCase(),
       }));
       applyFilters();
     }
@@ -111,13 +100,13 @@ function renderTable() {
   const pageItems = getPageItems();
 
   if (pageItems.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><i class="ph ph-identification-card"></i><p>No bookings match this view.</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><i class="ph ph-identification-card"></i><p>No bookings found in your corporate account yet. Click "Create Booking" to schedule a ride.</p></div></td></tr>`;
   } else {
     tbody.innerHTML = pageItems.map((b) => `
       <tr>
         <td class="booking-id-cell">${b.id}</td>
         <td><span class="route-cell">${b.from} <i class="ph ph-arrow-right"></i> ${b.to}</span></td>
-        <td class="booking-date-cell">${b.date}. &nbsp;${b.time}</td>
+        <td class="booking-date-cell">${b.date}${b.time ? `. &nbsp;${b.time}` : ""}</td>
         <td>
           <div class="requested-by-cell">
             <img src="Assets/Driver.jpg" alt="${b.requestedBy}">
@@ -137,22 +126,20 @@ function renderPagination() {
   const container = document.getElementById("bookings-pagination");
   const total = state.filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const shown = total === TOTAL_MOCK_COUNT && state.currentPage === 1 ? 6 : Math.min(PAGE_SIZE, total - (state.currentPage - 1) * PAGE_SIZE);
+  const shown = total === 0 ? 0 : Math.min(PAGE_SIZE, total - (state.currentPage - 1) * PAGE_SIZE);
 
   const pageButtons = [];
   const maxVisible = 3;
   for (let p = 1; p <= Math.min(maxVisible, totalPages); p++) {
     pageButtons.push(p);
   }
-  const lastLabel = 10;
 
   container.innerHTML = `
     <span>Showing ${Math.max(0, shown)} of ${total} bookings</span>
     <div class="pagination-controls">
       <button class="page-btn" id="prev-page" ${state.currentPage === 1 ? "disabled" : ""}><i class="ph ph-caret-left"></i></button>
       ${pageButtons.map((p) => `<button class="page-btn ${p === state.currentPage ? "active" : ""}" data-page="${p}">${p}</button>`).join("")}
-      <span class="page-ellipsis">•••</span>
-      <button class="page-btn ${state.currentPage === totalPages && totalPages > maxVisible ? "active" : ""}" data-page="${totalPages}">${lastLabel}</button>
+      ${totalPages > maxVisible ? `<span class="page-ellipsis">•••</span><button class="page-btn ${state.currentPage === totalPages ? "active" : ""}" data-page="${totalPages}">${totalPages}</button>` : ""}
       <button class="page-btn" id="next-page" ${state.currentPage === totalPages ? "disabled" : ""}><i class="ph ph-caret-right"></i></button>
     </div>
   `;
@@ -281,6 +268,7 @@ setupFilterDropdown("booking-status-filter", ["All", "Pending", "Approved", "Can
   applyFilters();
 });
 
+hydrateUserHeader();
 setupTabs();
 setupSidebarNav();
 setupMiscControls();

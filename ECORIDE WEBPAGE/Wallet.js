@@ -10,29 +10,26 @@ function getAuthHeaders(extra = {}) {
   };
 }
 
-const PAGE_SIZE = 8;
-const TOTAL_MOCK_COUNT = 32;
-
-const TOPUP_DESCRIPTIONS = ["Wallet top-up via bank transfer", "Wallet top-up via card"];
-const DEBIT_DESCRIPTIONS = ["Trip charge - Ikeja → VI", "Trip charge - Lekki Phase 1 → VI", "Trip charge - Surulere → Ikeja"];
-
-function generateMockTransactions(count) {
-  const txns = [];
-  for (let i = 0; i < count; i++) {
-    const isTopup = i % 4 === 0;
-    txns.push({
-      id: `TXN-2026-${String(1000 + i)}`,
-      description: isTopup ? TOPUP_DESCRIPTIONS[i % TOPUP_DESCRIPTIONS.length] : DEBIT_DESCRIPTIONS[i % DEBIT_DESCRIPTIONS.length],
-      date: `July ${(i % 28) + 1}, 2026, ${7 + (i % 5)}:${["00", "15", "30", "45"][i % 4]} AM`,
-      type: isTopup ? "topup" : "debit",
-      amount: isTopup ? 200000 + ((i * 15000) % 300000) : 1200 + ((i * 350) % 3000),
-    });
+function hydrateUserHeader() {
+  try {
+    const raw = localStorage.getItem("ecoride_user");
+    if (!raw) return;
+    const user = JSON.parse(raw);
+    const companyName = user.companyName || user.fullName || user.email;
+    if (companyName) {
+      document.querySelectorAll(".company-name, .admin-name").forEach((el) => {
+        el.textContent = companyName;
+      });
+    }
+  } catch (err) {
+    console.error("Error reading stored user:", err);
   }
-  return txns;
 }
 
+const PAGE_SIZE = 8;
+
 const state = {
-  transactions: generateMockTransactions(TOTAL_MOCK_COUNT),
+  transactions: [],
   filtered: [],
   currentPage: 1,
   activeTab: "all",
@@ -57,7 +54,7 @@ function renderTable() {
   const pageItems = getPageItems();
 
   if (pageItems.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><i class="ph ph-wallet"></i><p>No transactions in this view.</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><i class="ph ph-wallet"></i><p>No wallet transactions found in your corporate account yet.</p></div></td></tr>`;
   } else {
     tbody.innerHTML = pageItems.map((t) => `
       <tr>
@@ -77,7 +74,7 @@ function renderPagination() {
   const container = document.getElementById("transactions-pagination");
   const total = state.filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const shown = Math.min(PAGE_SIZE, total - (state.currentPage - 1) * PAGE_SIZE);
+  const shown = total === 0 ? 0 : Math.min(PAGE_SIZE, total - (state.currentPage - 1) * PAGE_SIZE);
 
   const pageButtons = [];
   const maxVisible = 3;
@@ -149,7 +146,7 @@ function setupTopUpModal() {
       alert("Please enter a valid amount.");
       return;
     }
-    alert(`Top up of ₦${amount.toLocaleString()} confirmed.`);
+    alert(`Top up of ₦${amount.toLocaleString()} initiated.`);
     overlay.classList.remove("open");
   });
 }
@@ -194,6 +191,9 @@ function setupMiscControls() {
 
 // GET /wallets and GET /wallets/transactions
 async function fetchWallet() {
+  const balanceEl = document.getElementById("wallet-hero-balance");
+  if (balanceEl) balanceEl.textContent = "₦0.00";
+
   try {
     const [walletRes, txnsRes] = await Promise.allSettled([
       fetch(`${API_BASE}/wallets`, { method: "GET", headers: getAuthHeaders(), credentials: "include" }),
@@ -203,31 +203,51 @@ async function fetchWallet() {
     if (walletRes.status === "fulfilled" && walletRes.value.ok) {
       const result = await walletRes.value.json();
       const d = result.data || result;
-      const balanceEl = document.getElementById("wallet-hero-balance");
-      if (balanceEl && d.balance !== undefined && Number(d.balance) > 0) {
-        balanceEl.textContent = `₦${Number(d.balance).toLocaleString()}`;
+      if (balanceEl && d && d.balance !== undefined) {
+        balanceEl.textContent = `₦${Number(d.balance).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       }
     }
 
     if (txnsRes.status === "fulfilled" && txnsRes.value.ok) {
       const txnsJson = await txnsRes.value.json();
-      const list = Array.isArray(txnsJson.data) ? txnsJson.data : Array.isArray(txnsJson.transactions) ? txnsJson.transactions : [];
-      if (list.length > 0) {
-        state.transactions = list.map((t, i) => ({
-          id: t.id || t.reference || `TXN-2026-${1000 + i}`,
-          description: t.description || t.narration || "Corporate wallet transaction",
-          date: t.createdAt ? new Date(t.createdAt).toLocaleString() : "July 21, 2026, 8:00 AM",
-          type: String(t.type || "debit").toLowerCase().includes("credit") || String(t.type || "").toLowerCase().includes("top") ? "topup" : "debit",
-          amount: Number(t.amount) || 0,
-        }));
-        applyFilters();
-      }
+      const list = Array.isArray(txnsJson.data)
+        ? txnsJson.data
+        : Array.isArray(txnsJson.transactions)
+        ? txnsJson.transactions
+        : Array.isArray(txnsJson)
+        ? txnsJson
+        : [];
+
+      state.transactions = list.map((t, i) => ({
+        id: t.id || t.reference || `TXN-${1000 + i}`,
+        description: t.description || t.narration || "Corporate wallet transaction",
+        date: t.createdAt ? new Date(t.createdAt).toLocaleString() : "—",
+        type: String(t.type || "debit").toLowerCase().includes("credit") || String(t.type || "").toLowerCase().includes("top") ? "topup" : "debit",
+        amount: Number(t.amount) || 0,
+      }));
+
+      const totalTopups = state.transactions
+        .filter((t) => t.type === "topup")
+        .reduce((sum, t) => sum + t.amount, 0);
+      const totalSpend = state.transactions
+        .filter((t) => t.type === "debit")
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      const spendEl = document.getElementById("wallet-month-spend");
+      const topupsEl = document.getElementById("wallet-total-topups");
+      const pendingEl = document.getElementById("wallet-pending-charges");
+      if (spendEl) spendEl.textContent = `₦${totalSpend.toLocaleString()}`;
+      if (topupsEl) topupsEl.textContent = `₦${totalTopups.toLocaleString()}`;
+      if (pendingEl) pendingEl.textContent = "₦0";
+
+      applyFilters();
     }
   } catch (err) {
     console.error("Error fetching corporate wallet:", err);
   }
 }
 
+hydrateUserHeader();
 setupTabs();
 setupTopUpModal();
 setupSidebarNav();

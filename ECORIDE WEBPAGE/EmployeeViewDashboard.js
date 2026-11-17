@@ -10,47 +10,27 @@ function getAuthHeaders(extra = {}) {
   };
 }
 
-const PAGE_SIZE = 7;
-const TOTAL_MOCK_COUNT = 48;
-
-const INITIAL_EMPLOYEES = [
-  { id: "EMP-2026-004", name: "Sarah Johnson", department: "Marketing", email: "sarahj@acme.com", status: "active", joined: "June 21, 2025" },
-  { id: "EMP-2026-002", name: "Michael Ade", department: "Operations", email: "michael@acme.com", status: "active", joined: "May 21, 2025" },
-  { id: "EMP-2026-003", name: "Linda Mo", department: "Finance", email: "linda@acme.com", status: "active", joined: "June 16, 2025" },
-  { id: "EMP-2026-005", name: "James Okafor", department: "Sales", email: "james@acme.com", status: "active", joined: "May 10, 2026" },
-  { id: "EMP-2026-006", name: "Tolu Bamidele", department: "HR", email: "tolu@acme.com", status: "active", joined: "May 01, 2026" },
-  { id: "EMP-2026-007", name: "Esther Bright", department: "Support", email: "esther@acme.com", status: "inactive", joined: "June 06, 2025" },
-  { id: "EMP-2026-008", name: "David Wilson", department: "Operations", email: "david@acme.com", status: "active", joined: "May 27, 2026" },
-];
-
-const FIRST_NAMES = ["Grace", "Peter", "Amaka", "Chidi", "Blessing", "Kunle", "Ngozi", "Samuel", "Fatima", "Emeka"];
-const LAST_NAMES = ["Eze", "Obi", "Adewale", "Okoro", "Nwosu", "Bakare", "Ibrahim", "Ojo", "Bello", "Nwachukwu"];
-const DEPARTMENTS = ["Marketing", "Operations", "Finance", "Sales", "HR", "Support"];
-
-function generateMockEmployees(count) {
-  const employees = [...INITIAL_EMPLOYEES];
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "June", "July", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-  for (let i = employees.length; i < count; i++) {
-    const first = FIRST_NAMES[i % FIRST_NAMES.length];
-    const last = LAST_NAMES[(i + 2) % LAST_NAMES.length];
-    const dept = DEPARTMENTS[i % DEPARTMENTS.length];
-    const day = String((i % 27) + 1).padStart(2, "0");
-    const year = i % 2 === 0 ? 2025 : 2026;
-    employees.push({
-      id: `EMP-2026-${String(i + 2).padStart(3, "0")}`,
-      name: `${first} ${last}`,
-      department: dept,
-      email: `${first.toLowerCase()}@acme.com`,
-      status: i % 6 === 5 ? "inactive" : "active",
-      joined: `${months[i % months.length]} ${day}, ${year}`,
-    });
+function hydrateUserHeader() {
+  try {
+    const raw = localStorage.getItem("ecoride_user");
+    if (!raw) return;
+    const user = JSON.parse(raw);
+    const companyName = user.companyName || user.fullName || user.email;
+    if (companyName) {
+      document.querySelectorAll(".company-name, .admin-name").forEach((el) => {
+        el.textContent = companyName;
+      });
+    }
+  } catch (err) {
+    console.error("Error reading stored user:", err);
   }
-  return employees;
 }
 
+const PAGE_SIZE = 7;
+const DEPARTMENTS = ["Marketing", "Operations", "Finance", "Sales", "HR", "Support"];
+
 const state = {
-  employees: generateMockEmployees(TOTAL_MOCK_COUNT),
+  employees: [],
   filtered: [],
   currentPage: 1,
   searchTerm: "",
@@ -60,12 +40,12 @@ const state = {
 
 function normalizeEmployee(emp, idx) {
   const fullName = emp.name || emp.fullName || emp.user?.fullName || `${emp.user?.firstName || "Employee"} ${emp.user?.lastName || idx + 1}`.trim();
-  const email = emp.email || emp.user?.email || "employee@acme.com";
+  const email = emp.email || emp.user?.email || "—";
   const statusRaw = String(emp.status || "ACTIVE").toLowerCase();
-  const joinedDate = emp.joined || (emp.createdAt ? new Date(emp.createdAt).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }) : "May 21, 2026");
+  const joinedDate = emp.joined || (emp.createdAt ? new Date(emp.createdAt).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }) : "—");
 
   return {
-    id: emp.id || emp.employeeId || `EMP-2026-${String(idx + 1).padStart(3, "0")}`,
+    id: emp.id || emp.employeeId || `EMP-${idx + 1}`,
     name: fullName,
     department: emp.department || "Operations",
     email,
@@ -83,8 +63,15 @@ async function fetchEmployees() {
       credentials: "include",
     });
     const result = await res.json();
-    const list = Array.isArray(result.data) ? result.data : Array.isArray(result.employees) ? result.employees : [];
-    if (res.ok && list.length > 0) {
+    const list = Array.isArray(result.data)
+      ? result.data
+      : Array.isArray(result.employees)
+      ? result.employees
+      : Array.isArray(result)
+      ? result
+      : [];
+
+    if (res.ok) {
       state.employees = list.map(normalizeEmployee);
       applyFilters();
     }
@@ -150,7 +137,7 @@ function renderTable() {
   const pageItems = getPageItems();
 
   if (pageItems.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><i class="ph ph-users"></i><p>No employees match your search.</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><i class="ph ph-users"></i><p>No employees found in your corporate account yet. Click "Add Employee" to attach a team member.</p></div></td></tr>`;
   } else {
     tbody.innerHTML = pageItems.map((emp) => `
       <tr data-id="${emp.id}">
@@ -202,14 +189,13 @@ function renderPagination() {
   for (let p = 1; p <= Math.min(maxVisible, totalPages); p++) {
     pageButtons.push(p);
   }
-  const lastLabel = totalPages > maxVisible ? 10 : totalPages;
 
   container.innerHTML = `
     <span>Showing ${start} to ${end} of ${total} employees</span>
     <div class="pagination-controls">
       <button class="page-btn" id="prev-page" ${state.currentPage === 1 ? "disabled" : ""}><i class="ph ph-caret-left"></i></button>
       ${pageButtons.map((p) => `<button class="page-btn ${p === state.currentPage ? "active" : ""}" data-page="${p}">${p}</button>`).join("")}
-      ${totalPages > maxVisible ? `<span class="page-ellipsis">•••</span><button class="page-btn ${state.currentPage === totalPages ? "active" : ""}" data-page="${totalPages}">${lastLabel}</button>` : ""}
+      ${totalPages > maxVisible ? `<span class="page-ellipsis">•••</span><button class="page-btn ${state.currentPage === totalPages ? "active" : ""}" data-page="${totalPages}">${totalPages}</button>` : ""}
       <button class="page-btn" id="next-page" ${state.currentPage === totalPages ? "disabled" : ""}><i class="ph ph-caret-right"></i></button>
     </div>
   `;
@@ -263,10 +249,9 @@ function setupRowMenuActions() {
         const emp = state.employees.find((e) => e.id === employeeId);
         const newDept = prompt("Enter department:", emp ? emp.department : "Operations");
         if (newDept) {
-          if (emp) emp.department = newDept;
-          applyFilters();
           try {
             await updateEmployee(employeeId, { department: newDept, status: "ACTIVE" });
+            fetchEmployees();
           } catch (err) {
             console.error("Error updating employee:", err);
           }
@@ -274,10 +259,9 @@ function setupRowMenuActions() {
       } else if (action === "deactivate") {
         const emp = state.employees.find((e) => e.id === employeeId);
         if (emp && confirm(`Deactivate ${emp.name}?`)) {
-          emp.status = "inactive";
-          applyFilters();
           try {
             await updateEmployee(employeeId, { status: "INACTIVE" });
+            fetchEmployees();
           } catch (err) {
             console.error("Error deactivating employee:", err);
           }
@@ -375,8 +359,9 @@ function setupMiscControls() {
     if (!userId) return;
     const department = prompt("Enter Department:", "Operations") || "Operations";
     const position = prompt("Enter Position:", "Staff") || "Staff";
+    const employeeId = prompt("Enter Employee Code (optional):", "ACM-001") || undefined;
     try {
-      const res = await createEmployee({ userId: userId.trim(), department, position });
+      const res = await createEmployee({ userId: userId.trim(), department, position, employeeId });
       alert(res.message || "Employee attached successfully.");
       fetchEmployees();
     } catch (err) {
@@ -408,6 +393,7 @@ setupFilterDropdown("status-filter", ["All", "Active", "Inactive"], (value) => {
   applyFilters();
 });
 
+hydrateUserHeader();
 setupRowMenuActions();
 setupTabs();
 setupSidebarNav();

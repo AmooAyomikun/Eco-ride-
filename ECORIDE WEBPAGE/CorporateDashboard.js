@@ -10,81 +10,72 @@ function getAuthHeaders(extra = {}) {
   };
 }
 
-const MOCK_DATA = {
-  stats: [
-    {
-      icon: "ph-user",
-      iconClass: "green",
-      label: "Active Employees",
-      value: "1,248",
-      deltaHighlight: "12.6%",
-      deltaText: "vs last 7 days",
-    },
-    {
-      icon: "ph-car-profile",
-      iconFill: true,
-      iconClass: "blue",
-      label: "Today's Trips",
-      value: "356",
-      deltaHighlight: "10.2%",
-      deltaText: "vs last 7 days",
-    },
-    {
-      icon: "ph-coins",
-      iconFill: true,
-      iconClass: "green",
-      label: "Monthly Transport Spend",
-      value: "N4,568,890",
-      deltaHighlight: "4.3%",
-      deltaText: "vs last month",
-    },
-    {
-      icon: "ph-calendar-check",
-      iconClass: "dark-green",
-      label: "Pending Ride Requests",
-      value: "18",
-      deltaText: "View and approve requests",
-      action: true,
-    },
-  ],
+function hydrateUserHeader() {
+  try {
+    const raw = localStorage.getItem("ecoride_user");
+    if (!raw) return;
+    const user = JSON.parse(raw);
+    const companyName = user.companyName || user.fullName || user.email;
+    if (companyName) {
+      document.querySelectorAll(".company-name, .admin-name").forEach((el) => {
+        el.textContent = companyName;
+      });
+    }
+  } catch (err) {
+    console.error("Error reading stored user:", err);
+  }
+}
 
-  bookings: [
-    { date: "July 21, 2026.  8:00 AM", from: "Lekki Phase 1", to: "Victoria Island", seats: 12, more: 7 },
-    { date: "July 21, 2026.  1:45 PM", from: "Ikeja", to: "Victoria Island", seats: 8, more: 3 },
-    { date: "July 22, 2026.  8:45 AM", from: "Ikeja", to: "Lekki Phase 1", seats: 10, more: 6 },
-    { date: "July 22, 2026.  9:00 PM", from: "Victoria Island", to: "Ikeja", seats: 6, more: 2 },
-  ],
+const INITIAL_STATS = [
+  {
+    icon: "ph-user",
+    iconClass: "green",
+    label: "Active Employees",
+    value: "0",
+    deltaHighlight: "0%",
+    deltaText: "vs last 7 days",
+  },
+  {
+    icon: "ph-car-profile",
+    iconFill: true,
+    iconClass: "blue",
+    label: "Today's Trips",
+    value: "0",
+    deltaHighlight: "0%",
+    deltaText: "vs last 7 days",
+  },
+  {
+    icon: "ph-coins",
+    iconFill: true,
+    iconClass: "green",
+    label: "Monthly Transport Spend",
+    value: "N0",
+    deltaHighlight: "0%",
+    deltaText: "vs last month",
+  },
+  {
+    icon: "ph-calendar-check",
+    iconClass: "dark-green",
+    label: "Pending Ride Requests",
+    value: "0",
+    deltaText: "View and approve requests",
+    action: true,
+  },
+];
 
-  requests: [
-    { id: "r1", name: "Sarah Johnson", from: "Ikeja", to: "VI", date: "July 22, 2026.  8:45 AM", seats: 10, avatar: "Assets/Review.jpg" },
-    { id: "r2", name: "Michael Ade", from: "Ikeja", to: "Surulere", date: "July 22, 2026.  7:15 AM", seats: 6, avatar: "Assets/Review.jpg" },
-    { id: "r3", name: "Linda Chukwu", from: "Lekki", to: "VI", date: "July 22, 2026.  6:30 PM", seats: 4, avatar: "Assets/Review.jpg" },
-  ],
+const QUICK_ACTIONS = [
+  { icon: "ph-car", iconType: "ph", iconClass: "green", title: "Create Ride", sub: "Schedule a ride" },
+  { icon: "ph-user", iconType: "ph-fill", iconClass: "green", title: "Invite Employee", sub: "Add team member" },
+  { icon: "ph-file-text", iconType: "ph-fill", iconClass: "blue", title: "Download Report", sub: "Get insights" },
+];
 
-  quickActions: [
-    { icon: "ph-car", iconType: "ph", iconClass: "green", title: "Create Ride", sub: "Schedule a ride" },
-    { icon: "ph-user", iconType: "ph-fill", iconClass: "green", title: "Invite Employee", sub: "Add team member" },
-    { icon: "ph-file-text", iconType: "ph-fill", iconClass: "blue", title: "Download Report", sub: "Get insights" },
-  ],
-
-  chart: [
-    { label: "Jan", value: 140000 },
-    { label: "Feb", value: 400000 },
-    { label: "Mar", value: 300000 },
-    { label: "Apr", value: 370000 },
-    { label: "May", value: 500000 },
-  ],
-
-  wallet: { balance: "₦ 2,335,600.00" },
-
-  routes: [
-    { from: "Lekki Phase 1", to: "Victoria Island", trips: 142 },
-    { from: "Ikeja", to: "Victoria Island", trips: 98 },
-    { from: "Surulere", to: "Lekki Phase", trips: 62 },
-    { from: "Victoria Island", to: "Ikeja", trips: 54 },
-    { from: "Yaba", to: "Victoria Island", trips: 42 },
-  ],
-};
+const EMPTY_CHART = [
+  { label: "Jan", value: 0 },
+  { label: "Feb", value: 0 },
+  { label: "Mar", value: 0 },
+  { label: "Apr", value: 0 },
+  { label: "May", value: 0 },
+];
 
 const BOOKING_AVATARS = [
   "Assets/Driver.jpg",
@@ -98,7 +89,7 @@ function renderStatCards(stats) {
     const iconPrefix = stat.iconFill ? "ph-fill" : "ph";
     const footerHtml = stat.action
       ? `<span class="stat-action" data-action="pending-requests">${stat.deltaText}</span>`
-      : `<span class="stat-delta"><em>${stat.deltaHighlight}</em> ${stat.deltaText}</span>`;
+      : `<span class="stat-delta"><em>${stat.deltaHighlight || "0%"}</em> ${stat.deltaText || ""}</span>`;
 
     return `
       <div class="stat-card">
@@ -126,14 +117,19 @@ function renderStatCards(stats) {
 
 function renderBookings(bookings) {
   const list = document.getElementById("bookings-list");
+  if (!Array.isArray(bookings) || bookings.length === 0) {
+    list.innerHTML = `<li class="booking-item" style="justify-content:center;color:#6b7280;padding:18px 0;font-size:12px;">No upcoming bookings yet.</li>`;
+    return;
+  }
+
   list.innerHTML = bookings.map((b) => `
     <li class="booking-item">
       <div class="booking-icon"><i class="ph ph-calendar-plus"></i></div>
       <div class="booking-meta">
-        <div class="booking-date">${b.date}</div>
-        <div class="booking-route">${b.from} <i class="ph ph-arrow-right"></i> ${b.to}</div>
+        <div class="booking-date">${b.date || b.createdAt || "Scheduled"}</div>
+        <div class="booking-route">${b.from || b.pickupLocation || "Pickup"} <i class="ph ph-arrow-right"></i> ${b.to || b.dropoffLocation || "Dropoff"}</div>
       </div>
-      <span class="seats-pill">${b.seats} Seats</span>
+      <span class="seats-pill">${b.seats || b.seatsBooked || 1} Seats</span>
       <div class="avatars-stack">
         ${BOOKING_AVATARS.map((src) => `<img src="${src}" alt="Passenger">`).join("")}
         ${b.more ? `<span class="avatars-more">+${b.more}</span>` : ""}
@@ -144,19 +140,23 @@ function renderBookings(bookings) {
 
 function renderRequests(requests) {
   const list = document.getElementById("requests-list");
+  if (!Array.isArray(requests) || requests.length === 0) {
+    list.innerHTML = `<li class="request-item" style="justify-content:center;color:#6b7280;padding:14px 0;font-size:12px;">No pending ride requests.</li>`;
+    return;
+  }
 
   list.innerHTML = requests.map((r) => `
     <li class="request-item" data-id="${r.id}">
-      <img src="${r.avatar || "Assets/Review.jpg"}" alt="${r.name}" class="request-avatar">
+      <img src="${r.avatar || "Assets/Review.jpg"}" alt="${r.name || "Employee"}" class="request-avatar">
       <div class="request-meta">
-        <div class="request-name">${r.name}</div>
-        <div class="request-route">${r.from} <i class="ph ph-arrow-right"></i> ${r.to}</div>
+        <div class="request-name">${r.name || r.passenger?.fullName || "Employee"}</div>
+        <div class="request-route">${r.from || r.pickupLocation || "Pickup"} <i class="ph ph-arrow-right"></i> ${r.to || r.dropoffLocation || "Dropoff"}</div>
       </div>
       <div class="request-datetime">
         <i class="ph ph-calendar-blank"></i>
-        <span>${r.date}</span>
+        <span>${r.date || r.createdAt || "Pending"}</span>
       </div>
-      <span class="request-seats">${r.seats} Seats</span>
+      <span class="request-seats">${r.seats || r.seatsBooked || 1} Seats</span>
       <div class="request-actions">
         <button class="approve-btn" data-id="${r.id}" data-decision="approved">Approve</button>
         <button class="decline-btn" data-id="${r.id}" data-decision="declined">Decline</button>
@@ -222,10 +222,11 @@ function renderQuickActions(actions) {
 function renderChart(data) {
   const barsContainer = document.getElementById("chart-bars");
   const tooltip = document.getElementById("chart-tooltip");
-  const maxValue = 500000;
+  const chartItems = Array.isArray(data) && data.length ? data : EMPTY_CHART;
+  const maxValue = Math.max(500000, ...chartItems.map((d) => Number(d.value) || 0));
 
-  barsContainer.innerHTML = data.map((d, i) => {
-    const heightPct = Math.round((d.value / maxValue) * 100);
+  barsContainer.innerHTML = chartItems.map((d, i) => {
+    const heightPct = Math.round(((Number(d.value) || 0) / maxValue) * 100);
     return `
       <div class="chart-bar-col" data-index="${i}">
         <div class="chart-bar-wrap">
@@ -236,28 +237,36 @@ function renderChart(data) {
     `;
   }).join("");
 
+  const totalSpend = chartItems.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
+  tooltip.innerHTML = `<span>Total</span><strong>₦ ${totalSpend.toLocaleString()}</strong>`;
+
   const cols = barsContainer.querySelectorAll(".chart-bar-col");
   cols.forEach((col) => {
     col.addEventListener("mouseenter", () => {
       cols.forEach((c) => c.classList.remove("active"));
       col.classList.add("active");
-      const d = data[col.dataset.index];
-      tooltip.innerHTML = `<span>${d.label}</span><strong>₦ ${d.value.toLocaleString()}</strong>`;
+      const d = chartItems[col.dataset.index];
+      tooltip.innerHTML = `<span>${d.label}</span><strong>₦ ${(Number(d.value) || 0).toLocaleString()}</strong>`;
     });
     col.addEventListener("mouseleave", () => {
       col.classList.remove("active");
-      tooltip.innerHTML = `<span>July</span><strong>₦ 4,568,890</strong>`;
+      tooltip.innerHTML = `<span>Total</span><strong>₦ ${totalSpend.toLocaleString()}</strong>`;
     });
   });
 }
 
 function renderWallet(wallet) {
-  document.getElementById("wallet-balance").textContent = wallet.balance;
+  document.getElementById("wallet-balance").textContent = wallet.balance || "₦ 0.00";
 }
 
 function renderRoutes(routes) {
   const list = document.getElementById("routes-list");
-  const maxTrips = Math.max(...routes.map((r) => r.trips));
+  if (!Array.isArray(routes) || routes.length === 0) {
+    list.innerHTML = `<li class="route-item" style="justify-content:center;color:#6b7280;padding:14px 0;font-size:12px;">No routes recorded yet.</li>`;
+    return;
+  }
+
+  const maxTrips = Math.max(1, ...routes.map((r) => Number(r.trips) || 0));
 
   list.innerHTML = routes.map((r, i) => `
     <li class="route-item">
@@ -265,7 +274,7 @@ function renderRoutes(routes) {
       <div class="route-meta">
         <div class="route-name">${r.from} <i class="ph ph-arrow-right"></i> ${r.to}</div>
         <div class="route-bar-track">
-          <div class="route-bar-fill" style="width: ${(r.trips / maxTrips) * 90}%"></div>
+          <div class="route-bar-fill" style="width: ${((Number(r.trips) || 0) / maxTrips) * 90}%"></div>
         </div>
       </div>
       <span class="route-count">${r.trips}</span>
@@ -332,27 +341,22 @@ function setupMiscControls() {
   });
 }
 
-function renderDashboard(data) {
-  renderStatCards(Array.isArray(data.stats) && data.stats.length ? data.stats : MOCK_DATA.stats);
-  renderBookings(Array.isArray(data.bookings) && data.bookings.length ? data.bookings : MOCK_DATA.bookings);
-  renderRequests(Array.isArray(data.requests) && data.requests.length ? data.requests : MOCK_DATA.requests);
-  renderQuickActions(Array.isArray(data.quickActions) && data.quickActions.length ? data.quickActions : MOCK_DATA.quickActions);
-  renderChart(Array.isArray(data.chart) && data.chart.length ? data.chart : MOCK_DATA.chart);
-  renderWallet(data.wallet && data.wallet.balance ? data.wallet : MOCK_DATA.wallet);
-  renderRoutes(Array.isArray(data.routes) && data.routes.length ? data.routes : MOCK_DATA.routes);
-}
-
 async function fetchDashboardOverview() {
   try {
-    const [dashRes, profileRes, walletRes] = await Promise.allSettled([
+    const [dashRes, profileRes, walletRes, empRes, bookingsRes] = await Promise.allSettled([
       fetch(`${API_BASE}/corporate/dashboard`, { method: "GET", headers: getAuthHeaders(), credentials: "include" }),
       fetch(`${API_BASE}/corporate/profile`, { method: "GET", headers: getAuthHeaders(), credentials: "include" }),
       fetch(`${API_BASE}/wallets`, { method: "GET", headers: getAuthHeaders(), credentials: "include" }),
+      fetch(`${API_BASE}/corporate/employees`, { method: "GET", headers: getAuthHeaders(), credentials: "include" }),
+      fetch(`${API_BASE}/bookings`, { method: "GET", headers: getAuthHeaders(), credentials: "include" }),
     ]);
+
+    const stats = INITIAL_STATS.map((s) => ({ ...s }));
 
     if (profileRes.status === "fulfilled" && profileRes.value.ok) {
       const profileJson = await profileRes.value.json();
-      const companyName = profileJson.data?.companyName || profileJson.companyName;
+      const p = profileJson.data || profileJson;
+      const companyName = p?.companyName;
       if (companyName) {
         document.querySelectorAll(".company-name, .admin-name").forEach((el) => {
           el.textContent = companyName;
@@ -362,38 +366,63 @@ async function fetchDashboardOverview() {
 
     if (walletRes.status === "fulfilled" && walletRes.value.ok) {
       const walletJson = await walletRes.value.json();
-      const balance = walletJson.data?.balance ?? walletJson.balance;
-      if (balance !== undefined && Number(balance) > 0) {
-        renderWallet({ balance: `₦ ${Number(balance).toLocaleString()}` });
-      }
+      const w = walletJson.data || walletJson;
+      const balance = w?.balance ?? 0;
+      renderWallet({ balance: `₦ ${Number(balance).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` });
+    }
+
+    if (empRes.status === "fulfilled" && empRes.value.ok) {
+      const empJson = await empRes.value.json();
+      const empList = Array.isArray(empJson.data) ? empJson.data : Array.isArray(empJson.employees) ? empJson.employees : [];
+      stats[0].value = String(empList.length);
+    }
+
+    if (bookingsRes.status === "fulfilled" && bookingsRes.value.ok) {
+      const bookingsJson = await bookingsRes.value.json();
+      const bList = Array.isArray(bookingsJson.data) ? bookingsJson.data : Array.isArray(bookingsJson.bookings) ? bookingsJson.bookings : [];
+      renderBookings(bList.slice(0, 4));
+      const pendingList = bList.filter((b) => String(b.status || "").toUpperCase() === "PENDING");
+      stats[3].value = String(pendingList.length);
+      renderRequests(pendingList.slice(0, 3));
     }
 
     if (dashRes.status === "fulfilled" && dashRes.value.ok) {
       const result = await dashRes.value.json();
       const d = result.data || result;
       if (d && typeof d === "object") {
-        const updatedStats = MOCK_DATA.stats.map((s) => ({ ...s }));
         if (d.activeEmployees !== undefined || d.totalEmployees !== undefined) {
-          updatedStats[0].value = Number(d.activeEmployees ?? d.totalEmployees).toLocaleString();
+          stats[0].value = Number(d.activeEmployees ?? d.totalEmployees).toLocaleString();
         }
         if (d.todaysTrips !== undefined || d.totalTrips !== undefined) {
-          updatedStats[1].value = Number(d.todaysTrips ?? d.totalTrips).toLocaleString();
+          stats[1].value = Number(d.todaysTrips ?? d.totalTrips).toLocaleString();
         }
         if (d.monthlySpend !== undefined || d.totalSpend !== undefined) {
-          updatedStats[2].value = `N${Number(d.monthlySpend ?? d.totalSpend).toLocaleString()}`;
+          stats[2].value = `N${Number(d.monthlySpend ?? d.totalSpend).toLocaleString()}`;
         }
         if (d.pendingRequests !== undefined || d.pendingBookings !== undefined) {
-          updatedStats[3].value = String(d.pendingRequests ?? d.pendingBookings);
+          stats[3].value = String(d.pendingRequests ?? d.pendingBookings);
         }
-        renderStatCards(Array.isArray(d.stats) && d.stats.length ? d.stats : updatedStats);
+        if (Array.isArray(d.upcomingBookings)) renderBookings(d.upcomingBookings);
+        if (Array.isArray(d.recentRequests)) renderRequests(d.recentRequests);
+        if (Array.isArray(d.monthlyChart || d.chart)) renderChart(d.monthlyChart || d.chart);
+        if (Array.isArray(d.topRoutes || d.routes)) renderRoutes(d.topRoutes || d.routes);
       }
     }
+
+    renderStatCards(stats);
   } catch (err) {
     console.error("Failed to fetch dashboard overview:", err);
   }
 }
 
-renderDashboard(MOCK_DATA);
+hydrateUserHeader();
+renderStatCards(INITIAL_STATS);
+renderBookings([]);
+renderRequests([]);
+renderQuickActions(QUICK_ACTIONS);
+renderChart(EMPTY_CHART);
+renderWallet({ balance: "₦ 0.00" });
+renderRoutes([]);
 setupSidebarNav();
 setupMiscControls();
 fetchDashboardOverview();
