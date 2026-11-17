@@ -1,4 +1,14 @@
-const API_BASE = "https://ecoride-backend-0ll4.onrender.com/api/v1";
+const API_BASE = window.location.hostname.endsWith("vercel.app")
+  ? "/api/v1"
+  : "https://ecoride-backend-0ll4.onrender.com/api/v1";
+
+function getAuthHeaders(extra = {}) {
+  const token = localStorage.getItem("ecoride_token");
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
+}
 
 const MOCK_DATA = {
   stats: [
@@ -137,7 +147,7 @@ function renderRequests(requests) {
 
   list.innerHTML = requests.map((r) => `
     <li class="request-item" data-id="${r.id}">
-      <img src="${r.avatar}" alt="${r.name}" class="request-avatar">
+      <img src="${r.avatar || "Assets/Review.jpg"}" alt="${r.name}" class="request-avatar">
       <div class="request-meta">
         <div class="request-name">${r.name}</div>
         <div class="request-route">${r.from} <i class="ph ph-arrow-right"></i> ${r.to}</div>
@@ -159,9 +169,20 @@ function renderRequests(requests) {
   });
 }
 
-function handleRequestDecision(id, decision) {
+async function handleRequestDecision(id, decision) {
   const item = document.querySelector(`.request-item[data-id="${id}"]`);
   if (!item) return;
+
+  const endpointAction = decision === "approved" ? "accept" : "reject";
+  try {
+    await fetch(`${API_BASE}/bookings/${encodeURIComponent(id)}/${endpointAction}`, {
+      method: "PATCH",
+      headers: getAuthHeaders({ "Content-Type": "application/json" }),
+      credentials: "include",
+    });
+  } catch (err) {
+    console.error(`Failed to ${endpointAction} booking:`, err);
+  }
 
   const actions = item.querySelector(".request-actions");
   actions.innerHTML = `<span class="request-status-label ${decision}">
@@ -187,7 +208,13 @@ function renderQuickActions(actions) {
 
   container.querySelectorAll(".quick-action-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      alert(`"${btn.dataset.action}" is coming soon.`);
+      if (btn.dataset.action === "Create Ride") {
+        window.location.href = "CreateBooking.html";
+      } else if (btn.dataset.action === "Invite Employee") {
+        window.location.href = "EmployeeViewDashboard.html";
+      } else if (btn.dataset.action === "Download Report") {
+        window.location.href = "Reports.html";
+      }
     });
   });
 }
@@ -280,13 +307,24 @@ function setupMiscControls() {
     alert("Contact Support is coming soon.");
   });
 
-  document.getElementById("logout-btn").addEventListener("click", () => {
+  document.getElementById("logout-btn").addEventListener("click", async () => {
+    try {
+      await fetch(`${API_BASE}/auth/logout`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
+    localStorage.removeItem("ecoride_token");
+    localStorage.removeItem("ecoride_user");
     window.location.href = "Login.html";
   });
 
   document.getElementById("view-all-requests").addEventListener("click", (e) => {
     e.preventDefault();
-    alert("Full ride request list is coming soon.");
+    window.location.href = "Bookings.html";
   });
 
   document.getElementById("date-range-btn").addEventListener("click", () => {
@@ -306,14 +344,49 @@ function renderDashboard(data) {
 
 async function fetchDashboardOverview() {
   try {
-    const res = await fetch(`${API_BASE}/corporate/dashboard`, {
-      method: "GET",
-      credentials: "include",
-    });
+    const [dashRes, profileRes, walletRes] = await Promise.allSettled([
+      fetch(`${API_BASE}/corporate/dashboard`, { method: "GET", headers: getAuthHeaders(), credentials: "include" }),
+      fetch(`${API_BASE}/corporate/profile`, { method: "GET", headers: getAuthHeaders(), credentials: "include" }),
+      fetch(`${API_BASE}/wallets`, { method: "GET", headers: getAuthHeaders(), credentials: "include" }),
+    ]);
 
-    const result = await res.json();
-    if (res.ok && result.success && result.data) {
-      renderDashboard({ ...MOCK_DATA, ...result.data });
+    if (profileRes.status === "fulfilled" && profileRes.value.ok) {
+      const profileJson = await profileRes.value.json();
+      const companyName = profileJson.data?.companyName || profileJson.companyName;
+      if (companyName) {
+        document.querySelectorAll(".company-name, .admin-name").forEach((el) => {
+          el.textContent = companyName;
+        });
+      }
+    }
+
+    if (walletRes.status === "fulfilled" && walletRes.value.ok) {
+      const walletJson = await walletRes.value.json();
+      const balance = walletJson.data?.balance ?? walletJson.balance;
+      if (balance !== undefined && Number(balance) > 0) {
+        renderWallet({ balance: `₦ ${Number(balance).toLocaleString()}` });
+      }
+    }
+
+    if (dashRes.status === "fulfilled" && dashRes.value.ok) {
+      const result = await dashRes.value.json();
+      const d = result.data || result;
+      if (d && typeof d === "object") {
+        const updatedStats = MOCK_DATA.stats.map((s) => ({ ...s }));
+        if (d.activeEmployees !== undefined || d.totalEmployees !== undefined) {
+          updatedStats[0].value = Number(d.activeEmployees ?? d.totalEmployees).toLocaleString();
+        }
+        if (d.todaysTrips !== undefined || d.totalTrips !== undefined) {
+          updatedStats[1].value = Number(d.todaysTrips ?? d.totalTrips).toLocaleString();
+        }
+        if (d.monthlySpend !== undefined || d.totalSpend !== undefined) {
+          updatedStats[2].value = `N${Number(d.monthlySpend ?? d.totalSpend).toLocaleString()}`;
+        }
+        if (d.pendingRequests !== undefined || d.pendingBookings !== undefined) {
+          updatedStats[3].value = String(d.pendingRequests ?? d.pendingBookings);
+        }
+        renderStatCards(Array.isArray(d.stats) && d.stats.length ? d.stats : updatedStats);
+      }
     }
   } catch (err) {
     console.error("Failed to fetch dashboard overview:", err);

@@ -1,6 +1,6 @@
 const API_BASE = window.location.hostname.endsWith("vercel.app")
-  ? ""
-  : "https://ecoride-backend-0ll4.onrender.com";
+  ? "/api/v1"
+  : "https://ecoride-backend-0ll4.onrender.com/api/v1";
 
 const form = document.getElementById("login-form");
 const errorBox = document.getElementById("error-message");
@@ -27,17 +27,12 @@ form.addEventListener("submit", async (e) => {
   }
 
   try {
-    const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
+    const res = await fetch(`${API_BASE}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ identifier: email, email, password }),
     });
-
-    if (res.status >= 500) {
-      window.location.href = "CorporateDashboard.html";
-      return;
-    }
 
     const data = await res.json();
 
@@ -50,10 +45,21 @@ form.addEventListener("submit", async (e) => {
       return;
     }
 
+    if (data.token) {
+      localStorage.setItem("ecoride_token", data.token);
+    }
+    if (data.user) {
+      localStorage.setItem("ecoride_user", JSON.stringify(data.user));
+    }
+
     window.location.href = "CorporateDashboard.html";
   } catch (err) {
-    console.warn("Backend unreachable or CORS restricted, continuing to dashboard:", err);
-    window.location.href = "CorporateDashboard.html";
+    console.error("Login error:", err);
+    errorBox.textContent = "Something went wrong. Check your connection and try again.";
+    if (submitBtn) {
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+    }
   }
 });
 

@@ -1,3 +1,15 @@
+const API_BASE = window.location.hostname.endsWith("vercel.app")
+  ? "/api/v1"
+  : "https://ecoride-backend-0ll4.onrender.com/api/v1";
+
+function getAuthHeaders(extra = {}) {
+  const token = localStorage.getItem("ecoride_token");
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
+}
+
 const PAGE_SIZE = 7;
 const TOTAL_MOCK_COUNT = 18;
 
@@ -41,6 +53,34 @@ const state = {
   activeTab: "all",
   searchTerm: "",
 };
+
+// GET /bookings
+async function fetchBookings() {
+  try {
+    const res = await fetch(`${API_BASE}/bookings`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+      credentials: "include",
+    });
+    const result = await res.json();
+    const list = Array.isArray(result.data) ? result.data : Array.isArray(result.bookings) ? result.bookings : [];
+    if (res.ok && list.length > 0) {
+      state.bookings = list.map((b, i) => ({
+        id: b.id || b.bookingId || `BK-2026-${String(561 + i).padStart(4, "0")}`,
+        from: b.pickupLocation || b.from || "Ikeja",
+        to: b.dropoffLocation || b.to || "VI",
+        date: b.date || "July 22, 2026",
+        time: b.time || "8:45 AM",
+        requestedBy: b.passenger?.fullName || b.requestedBy || "Sarah Johnson",
+        seats: b.seats || b.seatsBooked || 2,
+        status: String(b.status || "approved").toLowerCase(),
+      }));
+      applyFilters();
+    }
+  } catch (err) {
+    console.error("Error fetching bookings:", err);
+  }
+}
 
 function applyFilters() {
   state.filtered = state.bookings.filter((b) => {
@@ -211,6 +251,8 @@ function setupMiscControls() {
     alert("Contact Support is coming soon.");
   });
   document.getElementById("logout-btn").addEventListener("click", () => {
+    localStorage.removeItem("ecoride_token");
+    localStorage.removeItem("ecoride_user");
     window.location.href = "Login.html";
   });
   document.getElementById("booking-search").addEventListener("input", (e) => {
@@ -243,3 +285,4 @@ setupTabs();
 setupSidebarNav();
 setupMiscControls();
 applyFilters();
+fetchBookings();

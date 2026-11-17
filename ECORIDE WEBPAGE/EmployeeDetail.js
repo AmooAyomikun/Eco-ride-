@@ -1,4 +1,14 @@
-const API_BASE = "https://ecoride-backend-0ll4.onrender.com/api/v1";
+const API_BASE = window.location.hostname.endsWith("vercel.app")
+  ? "/api/v1"
+  : "https://ecoride-backend-0ll4.onrender.com/api/v1";
+
+function getAuthHeaders(extra = {}) {
+  const token = localStorage.getItem("ecoride_token");
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
+}
 
 const EMPLOYEES_MAP = {
   "EMP-2026-004": {
@@ -229,6 +239,8 @@ function setupMiscControls() {
     alert("Contact Support is coming soon.");
   });
   document.getElementById("logout-btn").addEventListener("click", () => {
+    localStorage.removeItem("ecoride_token");
+    localStorage.removeItem("ecoride_user");
     window.location.href = "Login.html";
   });
   document.getElementById("edit-employee-btn").addEventListener("click", () => {
@@ -261,11 +273,22 @@ async function fetchEmployeeDetail() {
   try {
     const res = await fetch(`${API_BASE}/corporate/employees/${encodeURIComponent(employeeId)}`, {
       method: "GET",
+      headers: getAuthHeaders(),
       credentials: "include",
     });
     const result = await res.json();
     if (res.ok && result.success && result.data) {
-      renderEmployeeView({ ...fallbackData, ...result.data });
+      const d = result.data;
+      renderEmployeeView({
+        ...fallbackData,
+        name: d.user?.fullName || d.fullName || d.name || fallbackData.name,
+        title: d.position || fallbackData.title,
+        department: d.department ? `${d.department} Department` : fallbackData.department,
+        status: String(d.status || "ACTIVE").toLowerCase() === "inactive" ? "inactive" : "active",
+        employeeId: d.employeeId || d.id || fallbackData.employeeId,
+        email: d.user?.email || d.email || fallbackData.email,
+        phone: d.user?.phoneNumber || d.phone || fallbackData.phone,
+      });
     }
   } catch (err) {
     console.error("Failed to fetch employee details:", err);

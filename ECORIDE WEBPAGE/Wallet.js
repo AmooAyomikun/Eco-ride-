@@ -1,4 +1,14 @@
-const API_BASE = "https://ecoride-backend-0ll4.onrender.com/api/v1";
+const API_BASE = window.location.hostname.endsWith("vercel.app")
+  ? "/api/v1"
+  : "https://ecoride-backend-0ll4.onrender.com/api/v1";
+
+function getAuthHeaders(extra = {}) {
+  const token = localStorage.getItem("ecoride_token");
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
+}
 
 const PAGE_SIZE = 8;
 const TOTAL_MOCK_COUNT = 32;
@@ -173,6 +183,8 @@ function setupMiscControls() {
     alert("Contact Support is coming soon.");
   });
   document.getElementById("logout-btn").addEventListener("click", () => {
+    localStorage.removeItem("ecoride_token");
+    localStorage.removeItem("ecoride_user");
     window.location.href = "Login.html";
   });
   document.getElementById("withdraw-btn").addEventListener("click", () => {
@@ -180,21 +192,34 @@ function setupMiscControls() {
   });
 }
 
+// GET /wallets and GET /wallets/transactions
 async function fetchWallet() {
   try {
-    const res = await fetch(`${API_BASE}/wallets`, {
-      method: "GET",
-      credentials: "include",
-    });
-    const result = await res.json();
+    const [walletRes, txnsRes] = await Promise.allSettled([
+      fetch(`${API_BASE}/wallets`, { method: "GET", headers: getAuthHeaders(), credentials: "include" }),
+      fetch(`${API_BASE}/wallets/transactions`, { method: "GET", headers: getAuthHeaders(), credentials: "include" }),
+    ]);
 
-    if (res.ok && result.success && result.data) {
+    if (walletRes.status === "fulfilled" && walletRes.value.ok) {
+      const result = await walletRes.value.json();
+      const d = result.data || result;
       const balanceEl = document.getElementById("wallet-hero-balance");
-      if (balanceEl && result.data.balance !== undefined && Number(result.data.balance) > 0) {
-        balanceEl.textContent = `₦${Number(result.data.balance).toLocaleString()}`;
+      if (balanceEl && d.balance !== undefined && Number(d.balance) > 0) {
+        balanceEl.textContent = `₦${Number(d.balance).toLocaleString()}`;
       }
-      if (Array.isArray(result.data.transactions) && result.data.transactions.length > 0) {
-        state.transactions = result.data.transactions;
+    }
+
+    if (txnsRes.status === "fulfilled" && txnsRes.value.ok) {
+      const txnsJson = await txnsRes.value.json();
+      const list = Array.isArray(txnsJson.data) ? txnsJson.data : Array.isArray(txnsJson.transactions) ? txnsJson.transactions : [];
+      if (list.length > 0) {
+        state.transactions = list.map((t, i) => ({
+          id: t.id || t.reference || `TXN-2026-${1000 + i}`,
+          description: t.description || t.narration || "Corporate wallet transaction",
+          date: t.createdAt ? new Date(t.createdAt).toLocaleString() : "July 21, 2026, 8:00 AM",
+          type: String(t.type || "debit").toLowerCase().includes("credit") || String(t.type || "").toLowerCase().includes("top") ? "topup" : "debit",
+          amount: Number(t.amount) || 0,
+        }));
         applyFilters();
       }
     }

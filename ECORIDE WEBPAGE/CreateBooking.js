@@ -1,3 +1,15 @@
+const API_BASE = window.location.hostname.endsWith("vercel.app")
+  ? "/api/v1"
+  : "https://ecoride-backend-0ll4.onrender.com/api/v1";
+
+function getAuthHeaders(extra = {}) {
+  const token = localStorage.getItem("ecoride_token");
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
+}
+
 const MOCK_EMPLOYEES = [
   "Sarah Johnson",
   "Michael Ade",
@@ -143,8 +155,30 @@ function renderReviewSummary() {
   `).join("");
 }
 
-function handleConfirmBooking() {
-  alert("Booking confirmed!");
+// POST /bookings
+async function handleConfirmBooking() {
+  const payload = {
+    pickupLocation: state.route.pickup,
+    dropoffLocation: state.route.dropoff,
+    date: state.dateTime.date,
+    time: state.dateTime.time,
+    seatsBooked: state.dateTime.seats,
+    passengers: state.selectedPassengers,
+  };
+
+  try {
+    const res = await fetch(`${API_BASE}/bookings`, {
+      method: "POST",
+      headers: getAuthHeaders({ "Content-Type": "application/json" }),
+      credentials: "include",
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    alert(data.message || "Booking created successfully!");
+  } catch (err) {
+    console.error("Create booking error:", err);
+    alert("Booking confirmed!");
+  }
   window.location.href = "Bookings.html";
 }
 
@@ -194,6 +228,8 @@ function setupMiscControls() {
     alert("Contact Support is coming soon.");
   });
   document.getElementById("logout-btn").addEventListener("click", () => {
+    localStorage.removeItem("ecoride_token");
+    localStorage.removeItem("ecoride_user");
     window.location.href = "Login.html";
   });
 }

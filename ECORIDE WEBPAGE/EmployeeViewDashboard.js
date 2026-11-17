@@ -1,4 +1,14 @@
-const API_BASE = "https://ecoride-backend-0ll4.onrender.com/api/v1";
+const API_BASE = window.location.hostname.endsWith("vercel.app")
+  ? "/api/v1"
+  : "https://ecoride-backend-0ll4.onrender.com/api/v1";
+
+function getAuthHeaders(extra = {}) {
+  const token = localStorage.getItem("ecoride_token");
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
+}
 
 const PAGE_SIZE = 7;
 const TOTAL_MOCK_COUNT = 48;
@@ -48,16 +58,34 @@ const state = {
   statusFilter: "All",
 };
 
+function normalizeEmployee(emp, idx) {
+  const fullName = emp.name || emp.fullName || emp.user?.fullName || `${emp.user?.firstName || "Employee"} ${emp.user?.lastName || idx + 1}`.trim();
+  const email = emp.email || emp.user?.email || "employee@acme.com";
+  const statusRaw = String(emp.status || "ACTIVE").toLowerCase();
+  const joinedDate = emp.joined || (emp.createdAt ? new Date(emp.createdAt).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }) : "May 21, 2026");
+
+  return {
+    id: emp.id || emp.employeeId || `EMP-2026-${String(idx + 1).padStart(3, "0")}`,
+    name: fullName,
+    department: emp.department || "Operations",
+    email,
+    status: statusRaw === "inactive" ? "inactive" : "active",
+    joined: joinedDate,
+  };
+}
+
 // GET /corporate/employees
 async function fetchEmployees() {
   try {
     const res = await fetch(`${API_BASE}/corporate/employees`, {
       method: "GET",
+      headers: getAuthHeaders(),
       credentials: "include",
     });
     const result = await res.json();
-    if (res.ok && result.success && Array.isArray(result.data) && result.data.length > 0) {
-      state.employees = result.data;
+    const list = Array.isArray(result.data) ? result.data : Array.isArray(result.employees) ? result.employees : [];
+    if (res.ok && list.length > 0) {
+      state.employees = list.map(normalizeEmployee);
       applyFilters();
     }
   } catch (err) {
@@ -69,7 +97,7 @@ async function fetchEmployees() {
 async function createEmployee(payload) {
   const res = await fetch(`${API_BASE}/corporate/employees`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: getAuthHeaders({ "Content-Type": "application/json" }),
     credentials: "include",
     body: JSON.stringify(payload),
   });
@@ -80,7 +108,7 @@ async function createEmployee(payload) {
 async function updateEmployee(employeeId, updates) {
   const res = await fetch(`${API_BASE}/corporate/employees/${encodeURIComponent(employeeId)}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: getAuthHeaders({ "Content-Type": "application/json" }),
     credentials: "include",
     body: JSON.stringify(updates),
   });
@@ -91,6 +119,7 @@ async function updateEmployee(employeeId, updates) {
 async function deleteEmployee(employeeId) {
   const res = await fetch(`${API_BASE}/corporate/employees/${encodeURIComponent(employeeId)}`, {
     method: "DELETE",
+    headers: getAuthHeaders(),
     credentials: "include",
   });
   return res.json();
@@ -223,7 +252,7 @@ function closeRowMenu() {
 function setupRowMenuActions() {
   const menu = document.getElementById("row-menu");
   menu.querySelectorAll("button").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       const employeeId = menu.dataset.employeeId;
       const action = btn.dataset.action;
       closeRowMenu();
@@ -231,15 +260,27 @@ function setupRowMenuActions() {
       if (action === "view") {
         window.location.href = `EmployeeDetail.html?id=${encodeURIComponent(employeeId)}`;
       } else if (action === "edit") {
-        alert(`Edit Employee (${employeeId}) is coming soon.`);
+        const emp = state.employees.find((e) => e.id === employeeId);
+        const newDept = prompt("Enter department:", emp ? emp.department : "Operations");
+        if (newDept) {
+          if (emp) emp.department = newDept;
+          applyFilters();
+          try {
+            await updateEmployee(employeeId, { department: newDept, status: "ACTIVE" });
+          } catch (err) {
+            console.error("Error updating employee:", err);
+          }
+        }
       } else if (action === "deactivate") {
         const emp = state.employees.find((e) => e.id === employeeId);
         if (emp && confirm(`Deactivate ${emp.name}?`)) {
           emp.status = "inactive";
           applyFilters();
-          updateEmployee(employeeId, { status: "inactive" }).catch((err) => {
-            console.error("Error updating employee status:", err);
-          });
+          try {
+            await updateEmployee(employeeId, { status: "INACTIVE" });
+          } catch (err) {
+            console.error("Error deactivating employee:", err);
+          }
         }
       }
     });
@@ -325,10 +366,23 @@ function setupMiscControls() {
     alert("Contact Support is coming soon.");
   });
   document.getElementById("logout-btn").addEventListener("click", () => {
+    localStorage.removeItem("ecoride_token");
+    localStorage.removeItem("ecoride_user");
     window.location.href = "Login.html";
   });
-  document.getElementById("add-employee-btn").addEventListener("click", () => {
-    alert("Add Employee form is coming soon.");
+  document.getElementById("add-employee-btn").addEventListener("click", async () => {
+    const userId = prompt("Enter existing Passenger User ID (UUID):");
+    if (!userId) return;
+    const department = prompt("Enter Department:", "Operations") || "Operations";
+    const position = prompt("Enter Position:", "Staff") || "Staff";
+    try {
+      const res = await createEmployee({ userId: userId.trim(), department, position });
+      alert(res.message || "Employee attached successfully.");
+      fetchEmployees();
+    } catch (err) {
+      console.error("Add employee error:", err);
+      alert("Could not add employee. Please check the User ID.");
+    }
   });
 
   const topSearch = document.getElementById("search-input");

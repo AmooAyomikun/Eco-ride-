@@ -1,4 +1,15 @@
-const API_BASE = "https://ecoride-backend-0ll4.onrender.com/api/v1";
+const API_BASE = window.location.hostname.endsWith("vercel.app")
+  ? "/api/v1"
+  : "https://ecoride-backend-0ll4.onrender.com/api/v1";
+
+function getAuthHeaders(extra = {}) {
+  const token = localStorage.getItem("ecoride_token");
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
+}
+
 const MOCK_VERIFICATION_STATUS = "PENDING";
 
 const MOCK_DOCUMENTS = [
@@ -157,6 +168,8 @@ function setupMiscControls() {
     alert("Contact Support is coming soon.");
   });
   document.getElementById("logout-btn").addEventListener("click", () => {
+    localStorage.removeItem("ecoride_token");
+    localStorage.removeItem("ecoride_user");
     window.location.href = "Login.html";
   });
 }
@@ -166,37 +179,56 @@ async function fetchCorporateProfile() {
   try {
     const res = await fetch(`${API_BASE}/corporate/profile`, {
       method: "GET",
+      headers: getAuthHeaders(),
       credentials: "include",
     });
     const result = await res.json();
+    const p = result.data || result;
 
-    if (res.ok && result.success && result.data) {
-      const p = result.data;
+    if (res.ok && p) {
       if (p.companyName) document.getElementById("settings-company-name").value = p.companyName;
       if (p.rcNumber) document.getElementById("settings-rc-number").value = p.rcNumber;
       if (p.companyPhone) document.getElementById("settings-company-phone").value = p.companyPhone;
       if (p.companyAddress) document.getElementById("settings-company-address").value = p.companyAddress;
+      if (p.industry) document.getElementById("settings-industry").value = p.industry;
     }
   } catch (err) {
     console.error("Failed to load corporate profile:", err);
   }
 }
 
-// PATCH /corporate/profile (partial: companyAddress & companyPhone only)
+// PATCH /corporate/profile (with POST /corporate/profile fallback)
 function setupProfileSave() {
   document.getElementById("save-profile-btn").addEventListener("click", async () => {
     const payload = {
+      companyName: document.getElementById("settings-company-name").value.trim(),
+      rcNumber: document.getElementById("settings-rc-number").value.trim(),
       companyAddress: document.getElementById("settings-company-address").value.trim(),
       companyPhone: document.getElementById("settings-company-phone").value.trim(),
+      industry: document.getElementById("settings-industry").value,
     };
 
     try {
-      const res = await fetch(`${API_BASE}/corporate/profile`, {
+      let res = await fetch(`${API_BASE}/corporate/profile`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         credentials: "include",
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          companyAddress: payload.companyAddress,
+          companyPhone: payload.companyPhone,
+          industry: payload.industry,
+        }),
       });
+
+      if (res.status === 404) {
+        res = await fetch(`${API_BASE}/corporate/profile`, {
+          method: "POST",
+          headers: getAuthHeaders({ "Content-Type": "application/json" }),
+          credentials: "include",
+          body: JSON.stringify(payload),
+        });
+      }
+
       const data = await res.json();
       alert(data.message || "Company profile updated successfully.");
     } catch (err) {
@@ -213,13 +245,20 @@ async function fetchCorporateDocuments() {
   try {
     const res = await fetch(`${API_BASE}/corporate/documents`, {
       method: "GET",
+      headers: getAuthHeaders(),
       credentials: "include",
     });
     const result = await res.json();
+    const d = result.data || result;
 
-    if (res.ok && result.success && result.data) {
+    if (res.ok && d && (d.id || d.verificationStatus || d.cacCertificate)) {
       hasExistingDocuments = true;
-      renderVerificationBanner(result.data.verificationStatus || "PENDING");
+      renderVerificationBanner(d.verificationStatus || "PENDING");
+      const updatedDocs = MOCK_DOCUMENTS.map((doc) => ({
+        ...doc,
+        sub: d[doc.key] ? "Uploaded — pending review" : doc.sub,
+      }));
+      renderDocuments(updatedDocs);
     }
   } catch (err) {
     console.error("Failed to load corporate documents:", err);
@@ -229,12 +268,13 @@ async function fetchCorporateDocuments() {
 // POST or PATCH /corporate/documents (multipart/form-data)
 async function uploadCorporateDocument(fieldKey, file) {
   const formData = new FormData();
-  formData.append(fieldKey, file); // fieldKey is "cacCertificate", "taxCertificate", or "businessLicense"
+  formData.append(fieldKey, file);
 
   const method = hasExistingDocuments ? "PATCH" : "POST";
 
   const res = await fetch(`${API_BASE}/corporate/documents`, {
     method,
+    headers: getAuthHeaders(),
     credentials: "include",
     body: formData,
   });

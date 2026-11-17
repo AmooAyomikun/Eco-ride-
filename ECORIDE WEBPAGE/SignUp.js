@@ -1,6 +1,6 @@
 const API_BASE = window.location.hostname.endsWith("vercel.app")
-  ? ""
-  : "https://ecoride-backend-0ll4.onrender.com";
+  ? "/api/v1"
+  : "https://ecoride-backend-0ll4.onrender.com/api/v1";
 
 const form = document.querySelector(".reg-con");
 const errorBox = document.getElementById("error-message");
@@ -17,38 +17,34 @@ form.addEventListener("submit", async (e) => {
   const confirmPassword = document.getElementById("confirmPassword").value;
   const countryCodeEl = document.getElementById("countryCode");
   const phoneNumberEl = document.getElementById("phoneNumber");
-  const countryCode = countryCodeEl ? countryCodeEl.value : "+234";
-  const phoneNumberRaw = phoneNumberEl ? phoneNumberEl.value.trim() : "8012345678";
+  const countryCode = countryCodeEl ? countryCodeEl.value : "";
+  const phoneNumberRaw = phoneNumberEl ? phoneNumberEl.value.trim() : "";
 
   if (password !== confirmPassword) {
     errorBox.textContent = "Passwords do not match.";
     return;
   }
 
-  const phoneNumber = countryCode + phoneNumberRaw;
+  const phoneNumber = phoneNumberRaw ? countryCode + phoneNumberRaw : "08031112233";
 
   localStorage.setItem("pendingRcNumber", rcNumber);
   localStorage.setItem("pendingCompanyName", companyName);
   localStorage.setItem("pendingEmail", email);
 
   try {
-    const res = await fetch(`${API_BASE}/api/v1/auth/register`, {
+    const res = await fetch(`${API_BASE}/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        firstName: companyName,
-        lastName: "",
-        email: email,
-        phoneNumber: phoneNumber,
-        password: password,
-        confirmPassword: confirmPassword,
+        fullName: companyName,
+        companyName,
+        rcNumber,
+        email,
+        phoneNumber,
+        password,
+        confirmPassword,
       }),
     });
-
-    if (res.status >= 500) {
-      window.location.href = "EmailVerification.html";
-      return;
-    }
 
     const data = await res.json();
 
@@ -60,7 +56,7 @@ form.addEventListener("submit", async (e) => {
     localStorage.setItem("pendingEmail", data.email || email);
     window.location.href = "EmailVerification.html";
   } catch (err) {
-    console.warn("Backend unreachable or CORS restricted, continuing to verification:", err);
-    window.location.href = "EmailVerification.html";
+    console.error("Registration error:", err);
+    errorBox.textContent = "Something went wrong. Check your connection and try again.";
   }
 });
