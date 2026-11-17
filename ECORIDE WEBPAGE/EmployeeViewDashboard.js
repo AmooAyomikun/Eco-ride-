@@ -56,13 +56,13 @@ async function fetchEmployees() {
       credentials: "include",
     });
     const result = await res.json();
-    if (res.ok && result.success && Array.isArray(result.data)) {
+    if (res.ok && result.success && Array.isArray(result.data) && result.data.length > 0) {
       state.employees = result.data;
+      applyFilters();
     }
   } catch (err) {
     console.error("Error fetching employees:", err);
   }
-  applyFilters();
 }
 
 // POST /corporate/employees
@@ -358,4 +358,5 @@ setupRowMenuActions();
 setupTabs();
 setupSidebarNav();
 setupMiscControls();
+applyFilters();
 fetchEmployees();

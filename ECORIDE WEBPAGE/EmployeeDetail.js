@@ -248,9 +248,17 @@ function setupMiscControls() {
 
 const API_BASE = "https://ecoride-backend-0ll4.onrender.com/api/v1";
 
+function renderEmployeeView(employeeData) {
+  renderProfile(employeeData);
+  renderSummary(Array.isArray(employeeData.summary) && employeeData.summary.length ? employeeData.summary : getEmployeeById("EMP-2026-004").summary);
+  renderPreferredRoutes(Array.isArray(employeeData.preferredRoutes) && employeeData.preferredRoutes.length ? employeeData.preferredRoutes : getEmployeeById("EMP-2026-004").preferredRoutes);
+  renderEmergencyContact(employeeData.emergencyContact || getEmployeeById("EMP-2026-004").emergencyContact);
+  renderActivity(Array.isArray(employeeData.activity) && employeeData.activity.length ? employeeData.activity : getEmployeeById("EMP-2026-004").activity);
+}
+
 async function fetchEmployeeDetail() {
   const employeeId = getEmployeeIdFromUrl();
-  let employeeData = getEmployeeById(employeeId);
+  const fallbackData = getEmployeeById(employeeId);
 
   try {
     const res = await fetch(`${API_BASE}/corporate/employees/${encodeURIComponent(employeeId)}`, {
@@ -259,21 +267,17 @@ async function fetchEmployeeDetail() {
     });
     const result = await res.json();
     if (res.ok && result.success && result.data) {
-      employeeData = { ...employeeData, ...result.data };
+      renderEmployeeView({ ...fallbackData, ...result.data });
     }
   } catch (err) {
     console.error("Failed to fetch employee details:", err);
   }
-
-  renderProfile(employeeData);
-  renderSummary(employeeData.summary);
-  renderPreferredRoutes(employeeData.preferredRoutes);
-  renderEmergencyContact(employeeData.emergencyContact);
-  renderActivity(employeeData.activity);
-  setupActivityFilter(employeeData.activity);
 }
 
-fetchEmployeeDetail();
+const initialEmployee = getEmployeeById(getEmployeeIdFromUrl());
+renderEmployeeView(initialEmployee);
+setupActivityFilter(initialEmployee.activity);
 setupDetailTabs();
 setupSidebarNav();
 setupMiscControls();
+fetchEmployeeDetail();

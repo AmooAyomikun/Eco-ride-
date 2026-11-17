@@ -192,23 +192,22 @@ async function fetchWallet() {
 
     if (res.ok && result.success && result.data) {
       const balanceEl = document.getElementById("wallet-hero-balance");
-      if (balanceEl && result.data.balance !== undefined) {
+      if (balanceEl && result.data.balance !== undefined && Number(result.data.balance) > 0) {
         balanceEl.textContent = `₦${Number(result.data.balance).toLocaleString()}`;
       }
-      if (Array.isArray(result.data.transactions)) {
+      if (Array.isArray(result.data.transactions) && result.data.transactions.length > 0) {
         state.transactions = result.data.transactions;
+        applyFilters();
       }
     }
   } catch (err) {
     console.error("Error fetching corporate wallet:", err);
   }
-
-  applyFilters();
 }
-
-fetchWallet();
 
 setupTabs();
 setupTopUpModal();
 setupSidebarNav();
 setupMiscControls();
+applyFilters();
+fetchWallet();
