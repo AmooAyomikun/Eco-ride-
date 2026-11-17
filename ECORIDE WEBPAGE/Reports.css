@@ -497,7 +497,7 @@
   .reports-summary-heading {
     font-size: 12.5px;
   }
-
+  
   .reports-summary-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 10px;

@@ -1,3 +1,5 @@
+const API_BASE = "https://ecoride-backend-0ll4.onrender.com/api/v1";
+
 const PAGE_SIZE = 7;
 const TOTAL_MOCK_COUNT = 48;
 
@@ -45,6 +47,54 @@ const state = {
   departmentFilter: "All",
   statusFilter: "All",
 };
+
+// GET /corporate/employees
+async function fetchEmployees() {
+  try {
+    const res = await fetch(`${API_BASE}/corporate/employees`, {
+      method: "GET",
+      credentials: "include",
+    });
+    const result = await res.json();
+    if (res.ok && result.success && Array.isArray(result.data)) {
+      state.employees = result.data;
+    }
+  } catch (err) {
+    console.error("Error fetching employees:", err);
+  }
+  applyFilters();
+}
+
+// POST /corporate/employees
+async function createEmployee(payload) {
+  const res = await fetch(`${API_BASE}/corporate/employees`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  return res.json();
+}
+
+// PATCH /corporate/employees/:id
+async function updateEmployee(employeeId, updates) {
+  const res = await fetch(`${API_BASE}/corporate/employees/${encodeURIComponent(employeeId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(updates),
+  });
+  return res.json();
+}
+
+// DELETE /corporate/employees/:id
+async function deleteEmployee(employeeId) {
+  const res = await fetch(`${API_BASE}/corporate/employees/${encodeURIComponent(employeeId)}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  return res.json();
+}
 
 function applyFilters() {
   state.filtered = state.employees.filter((emp) => {
@@ -187,6 +237,9 @@ function setupRowMenuActions() {
         if (emp && confirm(`Deactivate ${emp.name}?`)) {
           emp.status = "inactive";
           applyFilters();
+          updateEmployee(employeeId, { status: "inactive" }).catch((err) => {
+            console.error("Error updating employee status:", err);
+          });
         }
       }
     });
@@ -305,4 +358,4 @@ setupRowMenuActions();
 setupTabs();
 setupSidebarNav();
 setupMiscControls();
-applyFilters();
+fetchEmployees();

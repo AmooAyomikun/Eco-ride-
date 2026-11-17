@@ -1,3 +1,5 @@
+const API_BASE = "https://ecoride-backend-0ll4.onrender.com/docs/index.html";
+
 const MOCK_DATA = {
   stats: [
     {
@@ -292,6 +294,30 @@ function setupMiscControls() {
   });
 }
 
+const API_BASE = "https://ecoride-backend-0ll4.onrender.com/api/v1";
+
+async function fetchDashboardOverview() {
+  try {
+    const res = await fetch(`${API_BASE}/corporate/dashboard`, {
+      method: "GET",
+      credentials: "include",
+    });
+
+    const result = await res.json();
+    if (res.ok && result.success && result.data) {
+      renderDashboard({ ...MOCK_DATA, ...result.data });
+      return;
+    }
+  } catch (err) {
+    console.error("Failed to fetch dashboard overview:", err);
+  }
+
+  renderDashboard(MOCK_DATA);
+}
+
+fetchDashboardOverview();
+
+
 function renderDashboard(data) {
   renderStatCards(data.stats);
   renderBookings(data.bookings);
@@ -303,5 +329,3 @@ function renderDashboard(data) {
   setupSidebarNav();
   setupMiscControls();
 }
-
-renderDashboard(MOCK_DATA);

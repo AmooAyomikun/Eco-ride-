@@ -1,3 +1,5 @@
+const API_BASE = "https://ecoride-backend-0ll4.onrender.com/api/v1";
+
 const PAGE_SIZE = 8;
 const TOTAL_MOCK_COUNT = 32;
 
@@ -178,8 +180,35 @@ function setupMiscControls() {
   });
 }
 
+const API_BASE = "https://ecoride-backend-0ll4.onrender.com/api/v1";
+
+async function fetchWallet() {
+  try {
+    const res = await fetch(`${API_BASE}/wallets`, {
+      method: "GET",
+      credentials: "include",
+    });
+    const result = await res.json();
+
+    if (res.ok && result.success && result.data) {
+      const balanceEl = document.getElementById("wallet-hero-balance");
+      if (balanceEl && result.data.balance !== undefined) {
+        balanceEl.textContent = `₦${Number(result.data.balance).toLocaleString()}`;
+      }
+      if (Array.isArray(result.data.transactions)) {
+        state.transactions = result.data.transactions;
+      }
+    }
+  } catch (err) {
+    console.error("Error fetching corporate wallet:", err);
+  }
+
+  applyFilters();
+}
+
+fetchWallet();
+
 setupTabs();
 setupTopUpModal();
 setupSidebarNav();
 setupMiscControls();
-applyFilters();

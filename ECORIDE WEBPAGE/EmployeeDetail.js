@@ -1,3 +1,5 @@
+const API_BASE = "https://ecoride-backend-0ll4.onrender.com/api/v1";
+
 const EMPLOYEES_MAP = {
   "EMP-2026-004": {
     name: "Sarah Johnson",
@@ -244,14 +246,34 @@ function setupMiscControls() {
   });
 }
 
-const currentEmployee = getEmployeeById(getEmployeeIdFromUrl());
+const API_BASE = "https://ecoride-backend-0ll4.onrender.com/api/v1";
 
-renderProfile(currentEmployee);
-renderSummary(currentEmployee.summary);
-renderPreferredRoutes(currentEmployee.preferredRoutes);
-renderEmergencyContact(currentEmployee.emergencyContact);
-renderActivity(currentEmployee.activity);
-setupActivityFilter(currentEmployee.activity);
+async function fetchEmployeeDetail() {
+  const employeeId = getEmployeeIdFromUrl();
+  let employeeData = getEmployeeById(employeeId);
+
+  try {
+    const res = await fetch(`${API_BASE}/corporate/employees/${encodeURIComponent(employeeId)}`, {
+      method: "GET",
+      credentials: "include",
+    });
+    const result = await res.json();
+    if (res.ok && result.success && result.data) {
+      employeeData = { ...employeeData, ...result.data };
+    }
+  } catch (err) {
+    console.error("Failed to fetch employee details:", err);
+  }
+
+  renderProfile(employeeData);
+  renderSummary(employeeData.summary);
+  renderPreferredRoutes(employeeData.preferredRoutes);
+  renderEmergencyContact(employeeData.emergencyContact);
+  renderActivity(employeeData.activity);
+  setupActivityFilter(employeeData.activity);
+}
+
+fetchEmployeeDetail();
 setupDetailTabs();
 setupSidebarNav();
 setupMiscControls();

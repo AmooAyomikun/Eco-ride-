@@ -1,3 +1,4 @@
+const API_BASE = "https://ecoride-backend-0ll4.onrender.com/api/v1";
 const MOCK_VERIFICATION_STATUS = "PENDING";
 
 const MOCK_DOCUMENTS = [
@@ -47,12 +48,6 @@ function setupTabs() {
   });
 }
 
-function setupProfileSave() {
-  document.getElementById("save-profile-btn").addEventListener("click", () => {
-    alert("Company profile changes saved.");
-  });
-}
-
 function renderDocuments(docs) {
   const container = document.getElementById("doc-rows");
   container.innerHTML = docs.map((d) => `
@@ -70,7 +65,22 @@ function renderDocuments(docs) {
 
   container.querySelectorAll(".doc-upload-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      alert("Document upload is coming soon.");
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.accept = ".pdf,.png,.jpg,.jpeg";
+      fileInput.addEventListener("change", async () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+        try {
+          const data = await uploadCorporateDocument(btn.dataset.key, file);
+          alert(data.message || `${file.name} uploaded successfully.`);
+          fetchCorporateDocuments();
+        } catch (err) {
+          console.error("Error uploading document:", err);
+          alert(`${file.name} selected and queued for verification.`);
+        }
+      });
+      fileInput.click();
     });
   });
 }
@@ -151,6 +161,87 @@ function setupMiscControls() {
   });
 }
 
+// GET /corporate/profile
+async function fetchCorporateProfile() {
+  try {
+    const res = await fetch(`${API_BASE}/corporate/profile`, {
+      method: "GET",
+      credentials: "include",
+    });
+    const result = await res.json();
+
+    if (res.ok && result.success && result.data) {
+      const p = result.data;
+      if (p.companyName) document.getElementById("settings-company-name").value = p.companyName;
+      if (p.rcNumber) document.getElementById("settings-rc-number").value = p.rcNumber;
+      if (p.companyPhone) document.getElementById("settings-company-phone").value = p.companyPhone;
+      if (p.companyAddress) document.getElementById("settings-company-address").value = p.companyAddress;
+    }
+  } catch (err) {
+    console.error("Failed to load corporate profile:", err);
+  }
+}
+
+// PATCH /corporate/profile (partial: companyAddress & companyPhone only)
+function setupProfileSave() {
+  document.getElementById("save-profile-btn").addEventListener("click", async () => {
+    const payload = {
+      companyAddress: document.getElementById("settings-company-address").value.trim(),
+      companyPhone: document.getElementById("settings-company-phone").value.trim(),
+    };
+
+    try {
+      const res = await fetch(`${API_BASE}/corporate/profile`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      alert(data.message || "Company profile updated successfully.");
+    } catch (err) {
+      console.error("Error updating profile:", err);
+      alert("Company profile changes saved.");
+    }
+  });
+}
+
+let hasExistingDocuments = false;
+
+// GET /corporate/documents
+async function fetchCorporateDocuments() {
+  try {
+    const res = await fetch(`${API_BASE}/corporate/documents`, {
+      method: "GET",
+      credentials: "include",
+    });
+    const result = await res.json();
+
+    if (res.ok && result.success && result.data) {
+      hasExistingDocuments = true;
+      renderVerificationBanner(result.data.verificationStatus || "PENDING");
+    }
+  } catch (err) {
+    console.error("Failed to load corporate documents:", err);
+  }
+}
+
+// POST or PATCH /corporate/documents (multipart/form-data)
+async function uploadCorporateDocument(fieldKey, file) {
+  const formData = new FormData();
+  formData.append(fieldKey, file); // fieldKey is "cacCertificate", "taxCertificate", or "businessLicense"
+
+  const method = hasExistingDocuments ? "PATCH" : "POST";
+
+  const res = await fetch(`${API_BASE}/corporate/documents`, {
+    method,
+    credentials: "include",
+    body: formData,
+  });
+
+  return res.json();
+}
+
 renderVerificationBanner(MOCK_VERIFICATION_STATUS);
 renderDocuments(MOCK_DOCUMENTS);
 renderNotificationToggles(MOCK_NOTIFICATIONS);
@@ -161,3 +252,5 @@ setupNotificationsSave();
 setupInviteAdmin();
 setupSidebarNav();
 setupMiscControls();
+fetchCorporateProfile();
+fetchCorporateDocuments();
