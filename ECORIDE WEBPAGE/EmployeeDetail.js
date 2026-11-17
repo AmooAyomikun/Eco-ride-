@@ -10,85 +10,54 @@ function getAuthHeaders(extra = {}) {
   };
 }
 
-const EMPLOYEES_MAP = {
-  "EMP-2026-004": {
-    name: "Sarah Johnson",
-    title: "Marketing Manager",
-    department: "Marketing Department",
-    status: "active",
-    employeeId: "EMP-2026-004",
-    joined: "May 12, 2024",
-    type: "Full-time",
-    email: "sarah.johnson@acme.com",
-    manager: "David Wilson",
-    workMode: "Hybrid",
-    phone: "+234 812 345 6789",
-    office: "Victoria Island",
-  },
-  "EMP-2026-002": {
-    name: "Michael Ade",
-    title: "Operations Manager",
-    department: "Operations Department",
-    status: "active",
-    employeeId: "EMP-2026-002",
-    joined: "May 21, 2025",
-    type: "Full-time",
-    email: "michael.ade@acme.com",
-    manager: "David Wilson",
-    workMode: "Hybrid",
-    phone: "+234 812 345 6789",
-    office: "Victoria Island",
-  },
-  "EMP-2026-003": {
-    name: "Linda Mo",
-    title: "Finance Analyst",
-    department: "Finance Department",
-    status: "active",
-    employeeId: "EMP-2026-003",
-    joined: "June 16, 2025",
-    type: "Full-time",
-    email: "linda.mo@acme.com",
-    manager: "David Wilson",
-    workMode: "Hybrid",
-    phone: "+234 812 345 6789",
-    office: "Victoria Island",
-  },
-};
+function hydrateUserHeader() {
+  try {
+    const raw = localStorage.getItem("ecoride_user");
+    if (!raw) return;
+    const user = JSON.parse(raw);
+    const companyName = user.companyName || user.fullName || user.email;
+    if (companyName) {
+      document.querySelectorAll(".company-name, .admin-name").forEach((el) => {
+        el.textContent = companyName;
+      });
+    }
+  } catch (err) {
+    console.error("Error reading stored user:", err);
+  }
+}
 
 function getEmployeeIdFromUrl() {
   const params = new URLSearchParams(window.location.search);
-  return params.get("id") || "EMP-2026-004";
+  return params.get("id") || "";
 }
 
-function getEmployeeById(id) {
-  const base = EMPLOYEES_MAP[id] || EMPLOYEES_MAP["EMP-2026-004"];
-
+function getEmptyEmployee(id) {
   return {
-    ...base,
+    name: "Employee",
+    title: "—",
+    department: "—",
+    status: "active",
+    employeeId: id || "—",
+    joined: "—",
+    type: "—",
+    email: "—",
+    manager: "—",
+    workMode: "—",
+    phone: "—",
+    office: "—",
     summary: [
-      { icon: "ph-car", iconType: "ph", label: "Total Trips", value: "24", deltaHighlight: "+12.6%", deltaText: "vs last 7 days" },
-      { icon: "ph-credit-card", iconType: "ph", label: "Total Spend", value: "N156,800", deltaHighlight: "+8%", deltaText: "vs last 7 days" },
-      { icon: "ph-credit-card", iconType: "ph", label: "This Month Spend", value: "N99,400", deltaHighlight: "+5%", deltaText: "vs last 7 days" },
-      { icon: "ph-star", iconType: "ph-fill", iconClass: "star", label: "Average rating", value: "4.8", deltaHighlight: "+0.3%", deltaText: "vs last 7 days" },
+      { icon: "ph-car", iconType: "ph", label: "Total Trips", value: "0", deltaHighlight: "0%", deltaText: "vs last 7 days" },
+      { icon: "ph-credit-card", iconType: "ph", label: "Total Spend", value: "₦0", deltaHighlight: "0%", deltaText: "vs last 7 days" },
+      { icon: "ph-credit-card", iconType: "ph", label: "This Month Spend", value: "₦0", deltaHighlight: "0%", deltaText: "vs last 7 days" },
+      { icon: "ph-star", iconType: "ph-fill", iconClass: "star", label: "Average rating", value: "0.0", deltaHighlight: "0%", deltaText: "vs last 7 days" },
     ],
-    preferredRoutes: [
-      { from: "Lekki Phase 1", to: "Victoria Island" },
-      { from: "Ikeja", to: "Victoria Island" },
-      { from: "Surulere", to: "Lekki Phase 1" },
-    ],
+    preferredRoutes: [],
     emergencyContact: {
-      name: "Michael Johnson",
-      relationship: "Brother",
-      phone: "+234 803 467 7985",
+      name: "—",
+      relationship: "—",
+      phone: "—",
     },
-    activity: [
-      { icon: "ph-car", title: "Booked morning commute", routeFrom: "Lekki Phase 1", routeTo: "Victoria Island", time: "July 21, 2026.  8:00 AM" },
-      { icon: "ph-check-circle", title: "Completed ride", routeFrom: "Lekki Phase 1", routeTo: "Victoria Island", time: "July 21, 2026.  8:45 AM" },
-      { icon: "ph-calendar-blank", title: "Booking approved", sub: "Monthly recurring booking", time: "July 20, 2026.  4:45 PM" },
-      { icon: "ph-wallet", title: "Transport allowance updated", sub: "July 2026 allowance credited", time: "July 20, 2026.  2:30 PM" },
-      { icon: "ph-file-text", title: "Submitted reimbursement", sub: "Client meeting transport", time: "July 18, 2026.  7:30 AM" },
-      { icon: "ph-git-branch", title: "Route changed", routeFrom: "Surulere", routeTo: "Victoria Island", time: "July 17, 2026.  9:45 AM" },
-    ],
+    activity: [],
   };
 }
 
@@ -127,6 +96,10 @@ function renderSummary(summary) {
 
 function renderPreferredRoutes(routes) {
   const list = document.getElementById("preferred-routes");
+  if (!Array.isArray(routes) || routes.length === 0) {
+    list.innerHTML = `<li class="preferred-route-item" style="justify-content:center;color:#6b7280;font-size:12px;">No preferred routes recorded yet.</li>`;
+    return;
+  }
   list.innerHTML = routes.map((r) => `
     <li class="preferred-route-item">
       <span class="preferred-route-icon"><i class="ph ph-git-branch"></i></span>
@@ -146,6 +119,10 @@ function renderEmergencyContact(ec) {
 
 function renderActivity(activity) {
   const list = document.getElementById("activity-list");
+  if (!Array.isArray(activity) || activity.length === 0) {
+    list.innerHTML = `<li class="activity-item" style="text-align:center;color:#6b7280;padding:18px 0;font-size:13px;">No recent activity found for this employee yet.</li>`;
+    return;
+  }
   list.innerHTML = activity.map((a) => {
     const subHtml = a.routeFrom
       ? `<div class="activity-sub">${a.routeFrom} <i class="ph ph-arrow-right"></i> ${a.routeTo}</div>`
@@ -168,7 +145,9 @@ function renderActivity(activity) {
   }).join("");
 }
 
-function setupActivityFilter(activity) {
+let currentActivity = [];
+
+function setupActivityFilter() {
   const select = document.getElementById("activity-filter");
   const categoryMap = {
     Trips: ["ph-car", "ph-check-circle", "ph-git-branch"],
@@ -179,11 +158,11 @@ function setupActivityFilter(activity) {
   select.addEventListener("change", () => {
     const value = select.value;
     if (value === "All Activity") {
-      renderActivity(activity);
+      renderActivity(currentActivity);
       return;
     }
     const icons = categoryMap[value] || [];
-    renderActivity(activity.filter((a) => icons.includes(a.icon)));
+    renderActivity(currentActivity.filter((a) => icons.includes(a.icon)));
   });
 }
 
@@ -259,16 +238,18 @@ function setupMiscControls() {
 }
 
 function renderEmployeeView(employeeData) {
+  currentActivity = Array.isArray(employeeData.activity) ? employeeData.activity : [];
   renderProfile(employeeData);
-  renderSummary(Array.isArray(employeeData.summary) && employeeData.summary.length ? employeeData.summary : getEmployeeById("EMP-2026-004").summary);
-  renderPreferredRoutes(Array.isArray(employeeData.preferredRoutes) && employeeData.preferredRoutes.length ? employeeData.preferredRoutes : getEmployeeById("EMP-2026-004").preferredRoutes);
-  renderEmergencyContact(employeeData.emergencyContact || getEmployeeById("EMP-2026-004").emergencyContact);
-  renderActivity(Array.isArray(employeeData.activity) && employeeData.activity.length ? employeeData.activity : getEmployeeById("EMP-2026-004").activity);
+  renderSummary(employeeData.summary);
+  renderPreferredRoutes(employeeData.preferredRoutes);
+  renderEmergencyContact(employeeData.emergencyContact);
+  renderActivity(currentActivity);
 }
 
 async function fetchEmployeeDetail() {
   const employeeId = getEmployeeIdFromUrl();
-  const fallbackData = getEmployeeById(employeeId);
+  const baseData = getEmptyEmployee(employeeId);
+  if (!employeeId) return;
 
   try {
     const res = await fetch(`${API_BASE}/corporate/employees/${encodeURIComponent(employeeId)}`, {
@@ -279,15 +260,34 @@ async function fetchEmployeeDetail() {
     const result = await res.json();
     if (res.ok && result.success && result.data) {
       const d = result.data;
+      const tripsCount = Number(d.totalTrips ?? d.tripsCount ?? 0);
+      const totalSpend = Number(d.totalSpend ?? 0);
+      const monthSpend = Number(d.monthlySpend ?? d.thisMonthSpend ?? 0);
+      const avgRating = d.averageRating !== undefined ? Number(d.averageRating).toFixed(1) : "0.0";
+
       renderEmployeeView({
-        ...fallbackData,
-        name: d.user?.fullName || d.fullName || d.name || fallbackData.name,
-        title: d.position || fallbackData.title,
-        department: d.department ? `${d.department} Department` : fallbackData.department,
+        ...baseData,
+        name: d.user?.fullName || d.fullName || d.name || baseData.name,
+        title: d.position || d.role || baseData.title,
+        department: d.department ? `${d.department} Department` : baseData.department,
         status: String(d.status || "ACTIVE").toLowerCase() === "inactive" ? "inactive" : "active",
-        employeeId: d.employeeId || d.id || fallbackData.employeeId,
-        email: d.user?.email || d.email || fallbackData.email,
-        phone: d.user?.phoneNumber || d.phone || fallbackData.phone,
+        employeeId: d.employeeId || d.id || baseData.employeeId,
+        joined: d.createdAt ? new Date(d.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : baseData.joined,
+        type: d.employmentType || baseData.type,
+        email: d.user?.email || d.email || baseData.email,
+        manager: d.manager || baseData.manager,
+        workMode: d.workMode || baseData.workMode,
+        phone: d.user?.phoneNumber || d.phone || baseData.phone,
+        office: d.office || baseData.office,
+        summary: Array.isArray(d.summary) && d.summary.length ? d.summary : [
+          { icon: "ph-car", iconType: "ph", label: "Total Trips", value: tripsCount.toLocaleString(), deltaHighlight: "0%", deltaText: "vs last 7 days" },
+          { icon: "ph-credit-card", iconType: "ph", label: "Total Spend", value: `₦${totalSpend.toLocaleString()}`, deltaHighlight: "0%", deltaText: "vs last 7 days" },
+          { icon: "ph-credit-card", iconType: "ph", label: "This Month Spend", value: `₦${monthSpend.toLocaleString()}`, deltaHighlight: "0%", deltaText: "vs last 7 days" },
+          { icon: "ph-star", iconType: "ph-fill", iconClass: "star", label: "Average rating", value: avgRating, deltaHighlight: "0%", deltaText: "vs last 7 days" },
+        ],
+        preferredRoutes: Array.isArray(d.preferredRoutes) ? d.preferredRoutes : [],
+        emergencyContact: d.emergencyContact || baseData.emergencyContact,
+        activity: Array.isArray(d.activity) ? d.activity : [],
       });
     }
   } catch (err) {
@@ -295,9 +295,10 @@ async function fetchEmployeeDetail() {
   }
 }
 
-const initialEmployee = getEmployeeById(getEmployeeIdFromUrl());
+hydrateUserHeader();
+const initialEmployee = getEmptyEmployee(getEmployeeIdFromUrl());
 renderEmployeeView(initialEmployee);
-setupActivityFilter(initialEmployee.activity);
+setupActivityFilter();
 setupDetailTabs();
 setupSidebarNav();
 setupMiscControls();

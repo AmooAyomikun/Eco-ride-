@@ -1,50 +1,67 @@
-function getTripIdFromUrl() {
-  const params = new URLSearchParams(window.location.search);
-  return params.get("id") || "TRP-2024-0647";
+const API_BASE = window.location.hostname.endsWith("vercel.app")
+  ? "/api/v1"
+  : "https://ecoride-backend-0ll4.onrender.com/api/v1";
+
+function getAuthHeaders(extra = {}) {
+  const token = localStorage.getItem("ecoride_token");
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
 }
 
-function getTripById(id) {
+function hydrateUserHeader() {
+  try {
+    const raw = localStorage.getItem("ecoride_user");
+    if (!raw) return;
+    const user = JSON.parse(raw);
+    const companyName = user.companyName || user.fullName || user.email;
+    if (companyName) {
+      document.querySelectorAll(".company-name, .admin-name").forEach((el) => {
+        el.textContent = companyName;
+      });
+    }
+  } catch (err) {
+    console.error("Error reading stored user:", err);
+  }
+}
+
+function getTripIdFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("id") || "";
+}
+
+function getEmptyTrip(id) {
   return {
-    id: id || "TRP-2024-0647",
-    status: "completed",
-    route: { from: "Lekki Phase 1", to: "Victoria Island" },
-    date: "May 21, 2026 . 8:00 AM",
+    id: id || "—",
+    status: "pending",
+    route: { from: "—", to: "—" },
+    date: "—",
     driver: {
-      name: "Sarah Johnson",
-      email: "sarahj@j.com",
-      phone: "+234 812 345 7843",
-      vehicle: "Toyota Camry . LND 123 AB",
+      name: "Unassigned",
+      email: "—",
+      phone: "—",
+      vehicle: "—",
     },
-    seats: "3 Seats",
-    amount: 1200,
-    tripIdLabel: "TRP-2024-0647",
+    seats: "0 Seats",
+    amount: 0,
+    tripIdLabel: id || "—",
     paymentMethod: "Corporate Wallet",
-    distance: "12.4km",
-    duration: "24 mins",
+    distance: "—",
+    duration: "—",
     summary: {
-      status: "completed",
-      totalAmount: 1200,
+      status: "pending",
+      totalAmount: 0,
       paidBy: "Corporate Wallet",
-      bookedBy: "Sarah Johnson",
-      passengerCount: 3,
-      seatsBooked: "3 of 3",
-      tripType: "Regular Commute",
-      createdAt: "May 20, 2024 . 9:15 AM",
-      completedAt: "May 20, 2024 . 8:24 AM",
+      bookedBy: "—",
+      passengerCount: 0,
+      seatsBooked: "0",
+      tripType: "Corporate Ride",
+      createdAt: "—",
+      completedAt: "—",
     },
-    passengers: [
-      { name: "Sarah Johnson", email: "srahj@acme.com", phone: "+234 812 324 6789", boarding: "Lekki Phase 1", dropoff: "Victoria Island", amount: 1200 },
-      { name: "Micheal Ade", email: "mic@acme.com", phone: "+234 812 324 6789", boarding: "Lekki Phase 1", dropoff: "Victoria Island", amount: 1200 },
-      { name: "Linda Mo", email: "linda@acme.com", phone: "+234 812 324 6789", boarding: "Lekki Phase 1", dropoff: "Victoria Island", amount: 1200 },
-    ],
-    timeline: [
-      { title: "Trip Created", time: "May 20, 2024 . 9:15 AM" },
-      { title: "Driver assigned", time: "May 20, 2024 . 9:17 AM" },
-      { title: "Passengers notified", time: "May 20, 2024 . 9:20 AM" },
-      { title: "Trip started", time: "May 20, 2024 . 8:00 AM" },
-      { title: "Trip completed", time: "May 21, 2024 . 8:24 AM" },
-      { title: "Payment completed", time: "May 21, 2024 . 8:25 AM" },
-    ],
+    passengers: [],
+    timeline: [],
   };
 }
 
@@ -53,7 +70,7 @@ function capitalize(str) {
 }
 
 function currency(amount) {
-  return `N${amount.toLocaleString()}`;
+  return `₦${(Number(amount) || 0).toLocaleString()}`;
 }
 
 function renderTripInfo(trip) {
@@ -113,6 +130,12 @@ function renderTripSummary(trip) {
 
 function renderPassengers(trip) {
   const tbody = document.getElementById("passenger-table-body");
+  if (!Array.isArray(trip.passengers) || trip.passengers.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#6b7280;padding:18px 0;">No passenger records available for this trip.</td></tr>`;
+    document.getElementById("total-paid").textContent = currency(trip.amount || 0);
+    return;
+  }
+
   tbody.innerHTML = trip.passengers.map((p) => `
     <tr>
       <td>
@@ -145,7 +168,13 @@ function renderDriverInfo(trip) {
 }
 
 function renderTimeline(timeline) {
-  document.getElementById("timeline-list").innerHTML = timeline.map((t) => `
+  const list = document.getElementById("timeline-list");
+  if (!Array.isArray(timeline) || timeline.length === 0) {
+    list.innerHTML = `<li class="timeline-item"><div class="timeline-title" style="color:#6b7280;">No timeline events recorded yet.</div></li>`;
+    return;
+  }
+
+  list.innerHTML = timeline.map((t) => `
     <li class="timeline-item">
       <div class="timeline-title">${t.title}</div>
       <div class="timeline-time">${t.time}</div>
@@ -182,6 +211,8 @@ function setupMiscControls() {
     alert("Contact Support is coming soon.");
   });
   document.getElementById("logout-btn").addEventListener("click", () => {
+    localStorage.removeItem("ecoride_token");
+    localStorage.removeItem("ecoride_user");
     window.location.href = "Login.html";
   });
   document.getElementById("add-note-btn").addEventListener("click", () => {
@@ -198,13 +229,125 @@ function setupMiscControls() {
   });
 }
 
-const currentTrip = getTripById(getTripIdFromUrl());
+function renderTripView(trip) {
+  renderTripInfo(trip);
+  renderRouteDetails(trip);
+  renderTripSummary(trip);
+  renderPassengers(trip);
+  renderDriverInfo(trip);
+  renderTimeline(trip.timeline);
+}
 
-renderTripInfo(currentTrip);
-renderRouteDetails(currentTrip);
-renderTripSummary(currentTrip);
-renderPassengers(currentTrip);
-renderDriverInfo(currentTrip);
-renderTimeline(currentTrip.timeline);
+function mapApiTrip(b, fallbackId) {
+  const seatsNum = Number(b.seatsBooked || b.seats || 1);
+  const amountNum = Number(b.amount || b.fare || b.totalAmount || 0);
+  const statusStr = String(b.status || "pending").toLowerCase();
+  const createdStr = b.createdAt ? new Date(b.createdAt).toLocaleString() : "—";
+  const completedStr = b.completedAt ? new Date(b.completedAt).toLocaleString() : "—";
+  const fromLoc = b.pickupLocation || b.origin || "—";
+  const toLoc = b.dropoffLocation || b.destination || "—";
+  const passengerName = b.passenger?.fullName || b.employeeName || b.requestedBy || "Employee";
+
+  const passengers = Array.isArray(b.passengers) && b.passengers.length
+    ? b.passengers.map((p) =>
+        typeof p === "string"
+          ? { name: p, email: "—", phone: "—", boarding: fromLoc, dropoff: toLoc, amount: amountNum }
+          : {
+              name: p.fullName || p.name || "Passenger",
+              email: p.email || "—",
+              phone: p.phoneNumber || p.phone || "—",
+              boarding: p.boarding || fromLoc,
+              dropoff: p.dropoff || toLoc,
+              amount: Number(p.amount || amountNum),
+            }
+      )
+    : b.passenger || b.employeeName
+    ? [{
+        name: passengerName,
+        email: b.passenger?.email || "—",
+        phone: b.passenger?.phoneNumber || "—",
+        boarding: fromLoc,
+        dropoff: toLoc,
+        amount: amountNum,
+      }]
+    : [];
+
+  return {
+    id: b.id || b.bookingReference || fallbackId || "—",
+    status: statusStr,
+    route: { from: fromLoc, to: toLoc },
+    date: b.scheduledAt ? new Date(b.scheduledAt).toLocaleString() : createdStr,
+    driver: {
+      name: b.driver?.fullName || b.driverName || "Unassigned",
+      email: b.driver?.email || "—",
+      phone: b.driver?.phoneNumber || "—",
+      vehicle: b.vehicle?.model ? `${b.vehicle.model} . ${b.vehicle.plateNumber || ""}` : b.vehicle || "—",
+    },
+    seats: `${seatsNum} Seat${seatsNum === 1 ? "" : "s"}`,
+    amount: amountNum,
+    tripIdLabel: b.bookingReference || b.id || fallbackId || "—",
+    paymentMethod: b.paymentMethod || "Corporate Wallet",
+    distance: b.distance ? `${b.distance}` : "—",
+    duration: b.duration ? `${b.duration}` : "—",
+    summary: {
+      status: statusStr,
+      totalAmount: amountNum,
+      paidBy: b.paymentMethod || "Corporate Wallet",
+      bookedBy: passengerName,
+      passengerCount: passengers.length,
+      seatsBooked: `${seatsNum}`,
+      tripType: b.tripType || "Corporate Ride",
+      createdAt: createdStr,
+      completedAt: completedStr,
+    },
+    passengers,
+    timeline: Array.isArray(b.timeline)
+      ? b.timeline
+      : b.createdAt
+      ? [{ title: `Trip ${capitalize(statusStr)}`, time: createdStr }]
+      : [],
+  };
+}
+
+async function fetchTripDetail() {
+  const tripId = getTripIdFromUrl();
+  if (!tripId) return;
+
+  try {
+    let tripData = null;
+    const res = await fetch(`${API_BASE}/bookings/${encodeURIComponent(tripId)}`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+      credentials: "include",
+    });
+    if (res.ok) {
+      const json = await res.json();
+      tripData = json.data || json;
+    }
+
+    if (!tripData || (!tripData.id && !tripData.pickupLocation)) {
+      const histRes = await fetch(`${API_BASE}/bookings/history`, {
+        method: "GET",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      if (histRes.ok) {
+        const histJson = await histRes.json();
+        const list = Array.isArray(histJson.data) ? histJson.data : Array.isArray(histJson) ? histJson : [];
+        tripData = list.find((item) => item.id === tripId || item.bookingReference === tripId) || null;
+      }
+    }
+
+    if (tripData) {
+      renderTripView(mapApiTrip(tripData, tripId));
+    }
+  } catch (err) {
+    console.error("Failed to fetch trip details:", err);
+  }
+}
+
+hydrateUserHeader();
+renderTripView(getEmptyTrip(getTripIdFromUrl()));
 setupSidebarNav();
 setupMiscControls();
+fetchTripDetail();
