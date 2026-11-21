@@ -1,0 +1,227 @@
+/* Shared Figma alignment and mobile responsiveness across all Admin Portal pages */
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.dashboard-container {
+  grid-template-columns: 260px minmax(0, 1fr) !important;
+  width: 100%;
+}
+
+.main-content {
+  min-width: 0;
+  width: 100%;
+}
+
+.sidebar {
+  width: 260px !important;
+  flex-shrink: 0;
+  transition: transform 0.25s ease;
+}
+
+.nav-menu {
+  height: auto !important;
+}
+
+.nav-menu a {
+  width: 100% !important;
+  gap: 10px !important;
+}
+
+.admin-menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background-color: #ffffff;
+  color: #111827;
+  font-size: 20px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.admin-sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 250;
+}
+
+.admin-sidebar-backdrop.active {
+  display: block;
+}
+
+/* Desktop Figma polish for Overview & Bookings cards */
+.stats-grid {
+  gap: 16px !important;
+  background-color: transparent !important;
+}
+
+.stat-card {
+  width: 100% !important;
+  min-width: 0;
+  height: auto !important;
+  min-height: 104px;
+  padding: 14px 16px !important;
+  margin-bottom: 0 !important;
+  background-color: #ffffff;
+}
+
+.analytics-grid {
+  gap: 20px !important;
+  margin-top: 24px;
+}
+
+.chart-card {
+  width: 100% !important;
+  min-width: 0;
+  height: auto !important;
+  min-height: 230px;
+}
+
+.table-responsive,
+.table-container,
+.feed-section {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.feed-table,
+table {
+  min-width: 620px;
+}
+
+@media (max-width: 1100px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .analytics-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .main-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .dashboard-container {
+    display: block !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  .sidebar {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    height: 100vh !important;
+    z-index: 300 !important;
+    transform: translateX(-100%);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.14);
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .admin-menu-btn {
+    display: inline-flex;
+  }
+
+  .main-content {
+    padding: 18px 16px 32px !important;
+  }
+
+  .top-header,
+  .top-tab {
+    height: auto !important;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .top-tab h2 {
+    font-size: 20px !important;
+    margin-right: auto;
+  }
+
+  .header-right {
+    gap: 10px !important;
+    flex-wrap: nowrap;
+  }
+
+  .user-profile .ph {
+    margin-left: 8px !important;
+  }
+
+  .search-box,
+  .search-bar,
+  .search-input-wrap {
+    width: 100% !important;
+    max-width: 100% !important;
+    order: 3;
+  }
+
+  .tabs {
+    display: flex !important;
+    overflow-x: auto !important;
+    white-space: nowrap;
+    gap: 18px !important;
+    padding-bottom: 8px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .settings-cards,
+  .status-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .filter-buttons,
+  .booking-filters,
+  .status-filters {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .user-profile .user-role {
+    display: none;
+  }
+
+  .user-profile .user-name {
+    max-width: 96px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .breakdown-content {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 16px;
+  }
+
+  .feed-section {
+    padding: 14px !important;
+  }
+
+  .detail-grid,
+  .profile-grid,
+  .info-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
