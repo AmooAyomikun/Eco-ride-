@@ -206,7 +206,7 @@ function setupMiscControls() {
     window.location.href = "Login.html";
   });
   document.getElementById("withdraw-btn").addEventListener("click", () => {
-    alert("Withdraw is coming soon.");
+    alert("Wallet withdrawal requires backend payout endpoint activation.");
   });
 
   const searchInput = document.querySelector(".search-bar input");

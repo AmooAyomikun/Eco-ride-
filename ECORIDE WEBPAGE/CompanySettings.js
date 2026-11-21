@@ -190,7 +190,7 @@ function renderAdmins() {
 
 function setupInviteAdmin() {
   document.getElementById("invite-admin-btn").addEventListener("click", () => {
-    alert("Invite Admin is coming soon.");
+    alert("Multi-admin invitations require backend role-invite endpoint activation.");
   });
 }
 

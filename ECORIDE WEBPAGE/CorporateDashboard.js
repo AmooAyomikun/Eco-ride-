@@ -396,9 +396,44 @@ function setupMiscControls() {
     window.location.href = "Bookings.html";
   });
 
-  document.getElementById("date-range-btn").addEventListener("click", () => {
-    alert("Date range picker is coming soon.");
-  });
+  const dateRangeBtn = document.getElementById("date-range-btn");
+  const dateRangeLabel = document.getElementById("date-range-label");
+  if (dateRangeBtn && dateRangeLabel) {
+    const presets = ["All Time", "Last 7 Days", "Last 30 Days", "This Month"];
+    let presetIdx = 0;
+    dateRangeLabel.textContent = presets[0];
+
+    const filterByPreset = (item, preset) => {
+      if (preset === "All Time") return true;
+      const raw = item.date || item.scheduledAt || item.createdAt;
+      if (!raw) return true;
+      const d = new Date(raw);
+      if (Number.isNaN(d.getTime())) return true;
+      const now = new Date();
+      if (preset === "Last 7 Days") {
+        const cutoff = new Date(now);
+        cutoff.setDate(now.getDate() - 7);
+        return d >= cutoff;
+      }
+      if (preset === "Last 30 Days") {
+        const cutoff = new Date(now);
+        cutoff.setDate(now.getDate() - 30);
+        return d >= cutoff;
+      }
+      if (preset === "This Month") {
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      }
+      return true;
+    };
+
+    dateRangeBtn.addEventListener("click", () => {
+      presetIdx = (presetIdx + 1) % presets.length;
+      const activePreset = presets[presetIdx];
+      dateRangeLabel.textContent = activePreset;
+      renderBookings(dashboardState.bookings.filter((b) => filterByPreset(b, activePreset)));
+      renderRequests(dashboardState.requests.filter((r) => filterByPreset(r, activePreset)));
+    });
+  }
 
   const searchInput = document.getElementById("search-input");
   if (searchInput) {

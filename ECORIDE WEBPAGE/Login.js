@@ -65,5 +65,5 @@ form.addEventListener("submit", async (e) => {
 
 googleButton.addEventListener("click", (e) => {
   e.preventDefault();
-  alert("Google sign-in is coming soon.");
+  errorBox.textContent = "Google sign-in is not yet enabled on the backend. Please sign in with your email and password.";
 });

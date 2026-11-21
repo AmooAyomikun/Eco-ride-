@@ -175,11 +175,80 @@ function setupActivityFilter() {
   });
 }
 
+const empTabState = {
+  employee: null,
+  trips: [],
+  bookings: [],
+};
+
+function matchesEmployeeRecord(record, emp) {
+  if (!emp) return false;
+  const targetId = String(emp.employeeId || "").toLowerCase();
+  const targetEmail = String(emp.email || "").toLowerCase();
+  const targetName = String(emp.name || "").toLowerCase();
+  const recStr = JSON.stringify(record || {}).toLowerCase();
+  return (
+    (targetId && targetId !== "—" && recStr.includes(targetId)) ||
+    (targetEmail && targetEmail !== "—" && recStr.includes(targetEmail)) ||
+    (targetName && targetName !== "employee" && recStr.includes(targetName))
+  );
+}
+
+function renderOtherTabContent(tabKey) {
+  const otherPanel = document.getElementById("other-tab-panel");
+  const emp = empTabState.employee;
+  let items = [];
+  let emptyMsg = "No records found for this employee yet.";
+
+  if (tabKey === "trips") {
+    items = empTabState.trips.filter((t) => matchesEmployeeRecord(t, emp));
+    emptyMsg = "No trips recorded for this employee yet.";
+  } else if (tabKey === "bookings") {
+    items = empTabState.bookings.filter((b) => matchesEmployeeRecord(b, emp));
+    emptyMsg = "No bookings recorded for this employee yet.";
+  } else if (tabKey === "payments") {
+    items = [...empTabState.trips, ...empTabState.bookings].filter(
+      (x) => matchesEmployeeRecord(x, emp) && Number(x.amount || x.fare || 0) > 0
+    );
+    emptyMsg = "No payment records found for this employee yet.";
+  }
+
+  if (items.length === 0) {
+    otherPanel.innerHTML = `<p id="other-tab-label" style="padding:24px;color:#6b7280;font-size:13px;text-align:center;">${emptyMsg}</p>`;
+    return;
+  }
+
+  otherPanel.innerHTML = `
+    <ul class="activity-list" style="padding:12px 18px;">
+      ${items.map((item) => {
+        const from = item.pickupLocation || item.origin || "Pickup";
+        const to = item.dropoffLocation || item.destination || "Dropoff";
+        const dateStr = item.createdAt ? new Date(item.createdAt).toLocaleString() : "—";
+        const amount = Number(item.amount || item.fare || 0);
+        const status = String(item.status || "pending");
+        return `
+          <li class="activity-item">
+            <div class="activity-row">
+              <div class="activity-text-row">
+                <span class="activity-icon"><i class="ph ph-car"></i></span>
+                <div>
+                  <div class="activity-title">${from} → ${to}</div>
+                  <div class="activity-sub">${status}${amount > 0 ? ` • ₦${amount.toLocaleString()}` : ""}</div>
+                </div>
+              </div>
+              <span class="activity-time">${dateStr}</span>
+            </div>
+          </li>
+        `;
+      }).join("")}
+    </ul>
+  `;
+}
+
 function setupDetailTabs() {
   const tabs = document.querySelectorAll(".detail-tab");
   const activityPanel = document.getElementById("activity-panel");
   const otherPanel = document.getElementById("other-tab-panel");
-  const otherLabel = document.getElementById("other-tab-label");
 
   tabs.forEach((tab) => {
     tab.addEventListener("click", () => {
@@ -192,7 +261,7 @@ function setupDetailTabs() {
       } else {
         activityPanel.style.display = "none";
         otherPanel.style.display = "block";
-        otherLabel.textContent = `${tab.textContent.trim()} view is coming soon.`;
+        renderOtherTabContent(tab.dataset.tab);
       }
     });
   });
@@ -297,6 +366,7 @@ function setupMiscControls() {
 }
 
 function renderEmployeeView(employeeData) {
+  empTabState.employee = employeeData;
   currentActivity = Array.isArray(employeeData.activity) ? employeeData.activity : [];
   renderProfile(employeeData);
   renderSummary(employeeData.summary);
@@ -311,14 +381,37 @@ async function fetchEmployeeDetail() {
   if (!employeeId) return;
 
   try {
-    const res = await fetch(`${API_BASE}/corporate/employees/${encodeURIComponent(employeeId)}`, {
-      method: "GET",
-      headers: getAuthHeaders(),
-      credentials: "include",
-    });
-    const result = await res.json();
-    if (res.ok && result.success && result.data) {
-      const d = result.data;
+    const [empRes, bookingsRes, historyRes] = await Promise.allSettled([
+      fetch(`${API_BASE}/corporate/employees/${encodeURIComponent(employeeId)}`, {
+        method: "GET",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      }),
+      fetch(`${API_BASE}/bookings`, {
+        method: "GET",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      }),
+      fetch(`${API_BASE}/bookings/history`, {
+        method: "GET",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      }),
+    ]);
+
+    if (bookingsRes.status === "fulfilled" && bookingsRes.value.ok) {
+      const bJson = await bookingsRes.value.json();
+      empTabState.bookings = Array.isArray(bJson.data) ? bJson.data : Array.isArray(bJson) ? bJson : [];
+    }
+    if (historyRes.status === "fulfilled" && historyRes.value.ok) {
+      const hJson = await historyRes.value.json();
+      empTabState.trips = Array.isArray(hJson.data) ? hJson.data : Array.isArray(hJson) ? hJson : [];
+    }
+
+    if (empRes.status === "fulfilled" && empRes.value.ok) {
+      const result = await empRes.value.json();
+      if (result.success && result.data) {
+        const d = result.data;
       const tripsCount = Number(d.totalTrips ?? d.tripsCount ?? 0);
       const totalSpend = Number(d.totalSpend ?? 0);
       const monthSpend = Number(d.monthlySpend ?? d.thisMonthSpend ?? 0);
@@ -348,6 +441,7 @@ async function fetchEmployeeDetail() {
         emergencyContact: d.emergencyContact || baseData.emergencyContact,
         activity: Array.isArray(d.activity) ? d.activity : [],
       });
+      }
     }
   } catch (err) {
     console.error("Failed to fetch employee details:", err);
