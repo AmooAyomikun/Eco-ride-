@@ -7,7 +7,7 @@
 
   function setupResponsiveShell() {
     const sidebar = document.querySelector(".sidebar");
-    const topTab = document.querySelector(".top-tab") || document.querySelector(".top-header");
+    const topTab = document.querySelector(".top-tab") || document.querySelector(".top-header") || document.querySelector("main > header");
 
     if (sidebar && topTab && !document.getElementById("admin-menu-btn")) {
       const btn = document.createElement("button");

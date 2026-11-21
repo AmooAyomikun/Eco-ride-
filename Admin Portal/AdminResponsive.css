@@ -6,29 +6,361 @@ body {
   overflow-x: hidden;
 }
 
-.dashboard-container {
-  grid-template-columns: 260px minmax(0, 1fr) !important;
-  width: 100%;
-}
-
-.main-content {
-  min-width: 0;
-  width: 100%;
-}
-
 .sidebar {
-  width: 260px !important;
+  width: 248px !important;
+  padding: 14px 14px !important;
+  gap: 8px !important;
   flex-shrink: 0;
   transition: transform 0.25s ease;
 }
 
+.dashboard-container {
+  display: grid !important;
+  grid-template-columns: 248px minmax(0, 1fr) !important;
+  width: 100% !important;
+  min-height: 100vh;
+}
+
+.sidebar .logo {
+  margin-bottom: 6px !important;
+  padding-left: 8px !important;
+}
+
+.sidebar .logo img {
+  width: 36px !important;
+  height: 36px !important;
+}
+
 .nav-menu {
   height: auto !important;
+  gap: 2px !important;
 }
 
 .nav-menu a {
   width: 100% !important;
+  height: 36px !important;
+  padding: 8px 12px !important;
   gap: 10px !important;
+  font-size: 14px !important;
+}
+
+.support-container {
+  margin-top: auto !important;
+}
+
+.support-card {
+  padding: 10px 12px !important;
+}
+
+.support-card .headset {
+  margin-bottom: 8px !important;
+}
+
+.btn-support {
+  padding: 7px 12px !important;
+  font-size: 12.5px !important;
+}
+
+.logout-btn a {
+  padding: 8px 12px !important;
+  height: auto !important;
+}
+
+/* Override fixed desktop widths and absolute positioning in legacy Admin CSS */
+main,
+.main-content {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  height: auto !important;
+  margin-left: 0 !important;
+  padding: 20px 28px 36px !important;
+  box-sizing: border-box;
+}
+
+.tabs {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.main-grid {
+  grid-template-columns: minmax(0, 1fr) 290px !important;
+  gap: 24px !important;
+}
+
+.left-column,
+.right-column {
+  min-width: 0 !important;
+  width: 100% !important;
+  background-color: transparent !important;
+}
+
+.settings-cards {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 14px !important;
+}
+
+.settings-cards .card {
+  width: 100% !important;
+  min-width: 0 !important;
+  margin-bottom: 0 !important;
+  background-color: #ffffff;
+  border-radius: 10px !important;
+}
+
+.settings-cards .card .f-icon {
+  flex-shrink: 0;
+}
+
+.settings-cards .card .details {
+  min-width: 0;
+}
+
+.status-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+}
+
+.status-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0 !important;
+  padding: 14px 14px 40px 14px !important;
+  position: relative;
+  background-color: #ffffff;
+  border-radius: 10px !important;
+  box-sizing: border-box;
+}
+
+.status-card > .tag {
+  position: absolute;
+  bottom: 12px;
+  left: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.status-card > .ph-caret-right {
+  position: absolute;
+  bottom: 13px;
+  right: 14px;
+  margin-left: 0 !important;
+  color: #6b7280;
+}
+
+.profile-panel,
+.settings-container,
+.system-status,
+.danger-zone {
+  width: 100% !important;
+  max-width: 100% !important;
+  padding: 16px !important;
+  box-sizing: border-box !important;
+  border-radius: 10px;
+}
+
+.profile-panel .avatar {
+  align-items: center;
+  gap: 12px;
+}
+
+.profile-panel .name {
+  margin-left: 0 !important;
+  min-width: 0;
+}
+
+.profile-panel h4,
+.profile-panel p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.system-status h3 {
+  padding-left: 0 !important;
+}
+
+.system-status li {
+  margin-left: 0 !important;
+  padding: 5px 0 !important;
+}
+
+.danger-item {
+  position: relative;
+  padding-right: 40px;
+}
+
+.danger-zone .delete {
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin-left: 0 !important;
+  cursor: pointer;
+}
+
+.danger-zone .delete i {
+  position: static !important;
+}
+
+header {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.meta-info {
+  flex-wrap: wrap;
+  height: auto !important;
+  gap: 12px !important;
+}
+
+.user-badge {
+  min-width: 0;
+}
+
+.user-badge .user-name {
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.top-header {
+  width: 100% !important;
+  height: auto !important;
+  margin-bottom: 18px !important;
+}
+
+.top-tab {
+  position: static !important;
+  left: auto !important;
+  top: auto !important;
+  width: 100% !important;
+  height: auto !important;
+  padding: 0 !important;
+  gap: 16px !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  background-color: transparent !important;
+}
+
+.top-tab h2 {
+  margin-right: auto;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  max-width: 100%;
+}
+
+.user-profile {
+  max-width: 240px;
+  min-width: 0;
+  padding: 6px 12px !important;
+  gap: 8px !important;
+}
+
+.user-info {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.user-profile .user-name {
+  display: block;
+  max-width: 135px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-profile .ph {
+  margin-left: 4px !important;
+  flex-shrink: 0;
+}
+
+.body-all {
+  position: static !important;
+  left: auto !important;
+  top: auto !important;
+  width: 100% !important;
+  height: auto !important;
+}
+
+.stats-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 16px !important;
+  margin-top: 16px !important;
+  background-color: transparent !important;
+}
+
+.stat-card {
+  width: 100% !important;
+  min-width: 0;
+  height: auto !important;
+  min-height: 104px;
+  padding: 14px 16px !important;
+  margin-bottom: 0 !important;
+  background-color: #ffffff;
+}
+
+.analytics-grid {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) !important;
+  gap: 20px !important;
+  margin-top: 20px !important;
+  margin-bottom: 24px !important;
+}
+
+.chart-card {
+  width: 100% !important;
+  min-width: 0;
+  height: auto !important;
+  min-height: 230px;
+}
+
+.table-responsive,
+.responsive-table,
+.table-container,
+.table-section,
+.feed-section {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+.feed-section {
+  padding: 18px !important;
+}
+
+.feed-table th,
+.feed-table td {
+  padding: 11px 12px !important;
+  font-size: 13px !important;
+}
+
+table th,
+table td {
+  white-space: nowrap;
+}
+
+.feed-table td:first-child {
+  white-space: normal;
+  min-width: 220px;
+}
+
+.feed-table,
+table {
+  width: 100%;
+  min-width: 600px;
 }
 
 .admin-menu-btn {
@@ -58,48 +390,7 @@ body {
   display: block;
 }
 
-/* Desktop Figma polish for Overview & Bookings cards */
-.stats-grid {
-  gap: 16px !important;
-  background-color: transparent !important;
-}
-
-.stat-card {
-  width: 100% !important;
-  min-width: 0;
-  height: auto !important;
-  min-height: 104px;
-  padding: 14px 16px !important;
-  margin-bottom: 0 !important;
-  background-color: #ffffff;
-}
-
-.analytics-grid {
-  gap: 20px !important;
-  margin-top: 24px;
-}
-
-.chart-card {
-  width: 100% !important;
-  min-width: 0;
-  height: auto !important;
-  min-height: 230px;
-}
-
-.table-responsive,
-.table-container,
-.feed-section {
-  max-width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-.feed-table,
-table {
-  min-width: 620px;
-}
-
-@media (max-width: 1100px) {
+@media (max-width: 1120px) {
   .stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
@@ -110,6 +401,10 @@ table {
 
   .main-grid {
     grid-template-columns: 1fr !important;
+  }
+
+  .status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
 
@@ -137,29 +432,22 @@ table {
     display: inline-flex;
   }
 
+  main,
   .main-content {
-    padding: 18px 16px 32px !important;
+    padding: 16px 16px 32px !important;
   }
 
-  .top-header,
   .top-tab {
-    height: auto !important;
-    gap: 12px;
     flex-wrap: wrap;
+    gap: 10px !important;
   }
 
   .top-tab h2 {
     font-size: 20px !important;
-    margin-right: auto;
   }
 
   .header-right {
     gap: 10px !important;
-    flex-wrap: nowrap;
-  }
-
-  .user-profile .ph {
-    margin-left: 8px !important;
   }
 
   .search-box,
@@ -189,6 +477,13 @@ table {
   .status-filters {
     flex-wrap: wrap !important;
     gap: 8px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .settings-cards,
+  .status-grid {
+    grid-template-columns: 1fr !important;
   }
 }
 
@@ -224,4 +519,3 @@ table {
     grid-template-columns: 1fr !important;
   }
 }
-
