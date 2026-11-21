@@ -2,6 +2,15 @@ const API_BASE = window.location.hostname.endsWith("vercel.app")
   ? "/api/v1"
   : "https://ecoride-backend-0ll4.onrender.com/api/v1";
 
+function requireAuth() {
+  const token = localStorage.getItem("ecoride_token");
+  if (!token) {
+    window.location.replace("Login.html");
+    return false;
+  }
+  return true;
+}
+
 function getAuthHeaders(extra = {}) {
   const token = localStorage.getItem("ecoride_token");
   return {
@@ -263,6 +272,10 @@ function setupProfileSave() {
       }
 
       const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || data.error || "Could not update company profile.");
+        return;
+      }
       alert(data.message || "Company profile updated on backend.");
       fetchCorporateProfile();
     } catch (err) {
@@ -316,16 +329,18 @@ async function uploadCorporateDocument(fieldKey, file) {
   return res.json();
 }
 
-hydrateUserHeader();
-renderVerificationBanner("PENDING");
-renderDocuments(DEFAULT_DOCUMENTS);
-renderNotificationToggles(MOCK_NOTIFICATIONS);
-renderAdmins();
-setupTabs();
-setupProfileSave();
-setupNotificationsSave();
-setupInviteAdmin();
-setupSidebarNav();
-setupMiscControls();
-fetchCorporateProfile();
-fetchCorporateDocuments();
+if (requireAuth()) {
+  hydrateUserHeader();
+  renderVerificationBanner("PENDING");
+  renderDocuments(DEFAULT_DOCUMENTS);
+  renderNotificationToggles(MOCK_NOTIFICATIONS);
+  renderAdmins();
+  setupTabs();
+  setupProfileSave();
+  setupNotificationsSave();
+  setupInviteAdmin();
+  setupSidebarNav();
+  setupMiscControls();
+  fetchCorporateProfile();
+  fetchCorporateDocuments();
+}

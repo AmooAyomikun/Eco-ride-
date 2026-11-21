@@ -2,6 +2,22 @@ const API_BASE = window.location.hostname.endsWith("vercel.app")
   ? "/api/v1"
   : "https://ecoride-backend-0ll4.onrender.com/api/v1";
 
+function requireAuth() {
+  const token = localStorage.getItem("ecoride_token");
+  if (!token) {
+    window.location.replace("Login.html");
+    return false;
+  }
+  return true;
+}
+
+const dashboardState = {
+  bookings: [],
+  requests: [],
+  chart: [],
+  routes: [],
+};
+
 function getAuthHeaders(extra = {}) {
   const token = localStorage.getItem("ecoride_token");
   return {
@@ -115,6 +131,19 @@ function renderStatCards(stats) {
   }
 }
 
+function formatBookingDate(raw) {
+  if (!raw) return "Scheduled";
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return String(raw);
+  return parsed.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 function renderBookings(bookings) {
   const list = document.getElementById("bookings-list");
   if (!Array.isArray(bookings) || bookings.length === 0) {
@@ -122,20 +151,27 @@ function renderBookings(bookings) {
     return;
   }
 
-  list.innerHTML = bookings.map((b) => `
-    <li class="booking-item">
-      <div class="booking-icon"><i class="ph ph-calendar-plus"></i></div>
-      <div class="booking-meta">
-        <div class="booking-date">${b.date || b.createdAt || "Scheduled"}</div>
-        <div class="booking-route">${b.from || b.pickupLocation || "Pickup"} <i class="ph ph-arrow-right"></i> ${b.to || b.dropoffLocation || "Dropoff"}</div>
-      </div>
-      <span class="seats-pill">${b.seats || b.seatsBooked || 1} Seats</span>
-      <div class="avatars-stack">
-        ${BOOKING_AVATARS.map((src) => `<img src="${src}" alt="Passenger">`).join("")}
-        ${b.more ? `<span class="avatars-more">+${b.more}</span>` : ""}
-      </div>
-    </li>
-  `).join("");
+  list.innerHTML = bookings.map((b) => {
+    const fromLoc = b.from || b.pickupLocation || b.pickupAddress || b.origin || b.pickup?.address || b.trip?.pickupLocation || "Pickup";
+    const toLoc = b.to || b.dropoffLocation || b.dropoffAddress || b.destination || b.dropoff?.address || b.trip?.dropoffLocation || "Dropoff";
+    const dateLabel = formatBookingDate(b.date || b.scheduledAt || b.createdAt);
+    const seatsCount = b.seats || b.seatsBooked || 1;
+
+    return `
+      <li class="booking-item">
+        <div class="booking-icon"><i class="ph ph-calendar-plus"></i></div>
+        <div class="booking-meta">
+          <div class="booking-date">${dateLabel}</div>
+          <div class="booking-route">${fromLoc} <i class="ph ph-arrow-right"></i> ${toLoc}</div>
+        </div>
+        <span class="seats-pill">${seatsCount} Seat${Number(seatsCount) === 1 ? "" : "s"}</span>
+        <div class="avatars-stack">
+          ${BOOKING_AVATARS.map((src) => `<img src="${src}" alt="Passenger">`).join("")}
+          ${b.more ? `<span class="avatars-more">+${b.more}</span>` : ""}
+        </div>
+      </li>
+    `;
+  }).join("");
 }
 
 function renderRequests(requests) {
@@ -220,9 +256,33 @@ function renderQuickActions(actions) {
 }
 
 function renderChart(data) {
+  const chartArea = document.querySelector(".spend-panel .chart-area");
+  const chartPlot = chartArea ? chartArea.querySelector(".chart-plot") : null;
   const barsContainer = document.getElementById("chart-bars");
   const tooltip = document.getElementById("chart-tooltip");
-  const chartItems = Array.isArray(data) && data.length ? data : EMPTY_CHART;
+  const hasData = Array.isArray(data) && data.some((d) => Number(d.value) > 0);
+
+  let emptyEl = chartArea ? chartArea.querySelector(".chart-empty-state") : null;
+  if (!hasData) {
+    if (chartPlot) chartPlot.style.display = "none";
+    if (tooltip) tooltip.style.display = "none";
+    if (chartArea && !emptyEl) {
+      emptyEl = document.createElement("div");
+      emptyEl.className = "chart-empty-state";
+      emptyEl.style.cssText = "display:flex;align-items:center;justify-content:center;width:100%;height:150px;color:#6b7280;font-size:12px;";
+      emptyEl.textContent = "No spend data recorded yet.";
+      chartArea.appendChild(emptyEl);
+    } else if (emptyEl) {
+      emptyEl.style.display = "flex";
+    }
+    return;
+  }
+
+  if (emptyEl) emptyEl.style.display = "none";
+  if (chartPlot) chartPlot.style.display = "";
+  if (tooltip) tooltip.style.display = "";
+
+  const chartItems = data;
   const maxValue = Math.max(500000, ...chartItems.map((d) => Number(d.value) || 0));
 
   barsContainer.innerHTML = chartItems.map((d, i) => {
@@ -339,6 +399,56 @@ function setupMiscControls() {
   document.getElementById("date-range-btn").addEventListener("click", () => {
     alert("Date range picker is coming soon.");
   });
+
+  const searchInput = document.getElementById("search-input");
+  if (searchInput) {
+    searchInput.addEventListener("input", (e) => {
+      const q = e.target.value.trim().toLowerCase();
+      if (!q) {
+        renderBookings(dashboardState.bookings);
+        renderRequests(dashboardState.requests);
+        return;
+      }
+      renderBookings(
+        dashboardState.bookings.filter((b) =>
+          `${b.from || b.pickupLocation || ""} ${b.to || b.dropoffLocation || ""} ${b.id || ""}`
+            .toLowerCase()
+            .includes(q)
+        )
+      );
+      renderRequests(
+        dashboardState.requests.filter((r) =>
+          `${r.name || r.passenger?.fullName || ""} ${r.from || r.pickupLocation || ""} ${r.to || r.dropoffLocation || ""}`
+            .toLowerCase()
+            .includes(q)
+        )
+      );
+    });
+  }
+
+  const routesSort = document.getElementById("routes-sort-select");
+  if (routesSort) {
+    routesSort.addEventListener("change", (e) => {
+      const sorted = [...dashboardState.routes].sort((a, b) => {
+        if (e.target.value === "By Distance") {
+          return (Number(b.distance) || 0) - (Number(a.distance) || 0);
+        }
+        return (Number(b.trips) || 0) - (Number(a.trips) || 0);
+      });
+      renderRoutes(sorted);
+    });
+  }
+
+  const spendRange = document.getElementById("spend-range-select");
+  if (spendRange) {
+    spendRange.addEventListener("change", (e) => {
+      if (e.target.value === "Last 3 Months") {
+        renderChart(dashboardState.chart.slice(-3));
+      } else {
+        renderChart(dashboardState.chart);
+      }
+    });
+  }
 }
 
 async function fetchDashboardOverview() {
@@ -380,10 +490,12 @@ async function fetchDashboardOverview() {
     if (bookingsRes.status === "fulfilled" && bookingsRes.value.ok) {
       const bookingsJson = await bookingsRes.value.json();
       const bList = Array.isArray(bookingsJson.data) ? bookingsJson.data : Array.isArray(bookingsJson.bookings) ? bookingsJson.bookings : [];
-      renderBookings(bList.slice(0, 4));
+      dashboardState.bookings = bList.slice(0, 4);
+      renderBookings(dashboardState.bookings);
       const pendingList = bList.filter((b) => String(b.status || "").toUpperCase() === "PENDING");
       stats[3].value = String(pendingList.length);
-      renderRequests(pendingList.slice(0, 3));
+      dashboardState.requests = pendingList.slice(0, 3);
+      renderRequests(dashboardState.requests);
     }
 
     if (dashRes.status === "fulfilled" && dashRes.value.ok) {
@@ -402,10 +514,22 @@ async function fetchDashboardOverview() {
         if (d.pendingRequests !== undefined || d.pendingBookings !== undefined) {
           stats[3].value = String(d.pendingRequests ?? d.pendingBookings);
         }
-        if (Array.isArray(d.upcomingBookings)) renderBookings(d.upcomingBookings);
-        if (Array.isArray(d.recentRequests)) renderRequests(d.recentRequests);
-        if (Array.isArray(d.monthlyChart || d.chart)) renderChart(d.monthlyChart || d.chart);
-        if (Array.isArray(d.topRoutes || d.routes)) renderRoutes(d.topRoutes || d.routes);
+        if (Array.isArray(d.upcomingBookings)) {
+          dashboardState.bookings = d.upcomingBookings;
+          renderBookings(dashboardState.bookings);
+        }
+        if (Array.isArray(d.recentRequests)) {
+          dashboardState.requests = d.recentRequests;
+          renderRequests(dashboardState.requests);
+        }
+        if (Array.isArray(d.monthlyChart || d.chart)) {
+          dashboardState.chart = d.monthlyChart || d.chart;
+          renderChart(dashboardState.chart);
+        }
+        if (Array.isArray(d.topRoutes || d.routes)) {
+          dashboardState.routes = d.topRoutes || d.routes;
+          renderRoutes(dashboardState.routes);
+        }
       }
     }
 
@@ -415,14 +539,16 @@ async function fetchDashboardOverview() {
   }
 }
 
-hydrateUserHeader();
-renderStatCards(INITIAL_STATS);
-renderBookings([]);
-renderRequests([]);
-renderQuickActions(QUICK_ACTIONS);
-renderChart(EMPTY_CHART);
-renderWallet({ balance: "₦ 0.00" });
-renderRoutes([]);
-setupSidebarNav();
-setupMiscControls();
-fetchDashboardOverview();
+if (requireAuth()) {
+  hydrateUserHeader();
+  renderStatCards(INITIAL_STATS);
+  renderBookings([]);
+  renderRequests([]);
+  renderQuickActions(QUICK_ACTIONS);
+  renderChart([]);
+  renderWallet({ balance: "₦ 0.00" });
+  renderRoutes([]);
+  setupSidebarNav();
+  setupMiscControls();
+  fetchDashboardOverview();
+}

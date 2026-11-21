@@ -2,6 +2,15 @@ const API_BASE = window.location.hostname.endsWith("vercel.app")
   ? "/api/v1"
   : "https://ecoride-backend-0ll4.onrender.com/api/v1";
 
+function requireAuth() {
+  const token = localStorage.getItem("ecoride_token");
+  if (!token) {
+    window.location.replace("Login.html");
+    return false;
+  }
+  return true;
+}
+
 function getAuthHeaders(extra = {}) {
   const token = localStorage.getItem("ecoride_token");
   return {
@@ -88,7 +97,11 @@ async function createEmployee(payload) {
     credentials: "include",
     body: JSON.stringify(payload),
   });
-  return res.json();
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || data.error || "Could not add employee.");
+  }
+  return data;
 }
 
 // PATCH /corporate/employees/:id
@@ -99,7 +112,11 @@ async function updateEmployee(employeeId, updates) {
     credentials: "include",
     body: JSON.stringify(updates),
   });
-  return res.json();
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || data.error || "Could not update employee.");
+  }
+  return data;
 }
 
 // DELETE /corporate/employees/:id
@@ -109,7 +126,11 @@ async function deleteEmployee(employeeId) {
     headers: getAuthHeaders(),
     credentials: "include",
   });
-  return res.json();
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || data.error || "Could not remove employee.");
+  }
+  return data;
 }
 
 function applyFilters() {
@@ -186,7 +207,12 @@ function renderPagination() {
 
   const pageButtons = [];
   const maxVisible = 3;
-  for (let p = 1; p <= Math.min(maxVisible, totalPages); p++) {
+  let startPage = Math.max(1, state.currentPage - 1);
+  let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+  if (endPage - startPage + 1 < maxVisible) {
+    startPage = Math.max(1, endPage - maxVisible + 1);
+  }
+  for (let p = startPage; p <= endPage; p++) {
     pageButtons.push(p);
   }
 
@@ -194,8 +220,9 @@ function renderPagination() {
     <span>Showing ${start} to ${end} of ${total} employees</span>
     <div class="pagination-controls">
       <button class="page-btn" id="prev-page" ${state.currentPage === 1 ? "disabled" : ""}><i class="ph ph-caret-left"></i></button>
+      ${startPage > 1 ? `<button class="page-btn" data-page="1">1</button>${startPage > 2 ? `<span class="page-ellipsis">•••</span>` : ""}` : ""}
       ${pageButtons.map((p) => `<button class="page-btn ${p === state.currentPage ? "active" : ""}" data-page="${p}">${p}</button>`).join("")}
-      ${totalPages > maxVisible ? `<span class="page-ellipsis">•••</span><button class="page-btn ${state.currentPage === totalPages ? "active" : ""}" data-page="${totalPages}">${totalPages}</button>` : ""}
+      ${endPage < totalPages ? `${endPage < totalPages - 1 ? `<span class="page-ellipsis">•••</span>` : ""}<button class="page-btn" data-page="${totalPages}">${totalPages}</button>` : ""}
       <button class="page-btn" id="next-page" ${state.currentPage === totalPages ? "disabled" : ""}><i class="ph ph-caret-right"></i></button>
     </div>
   `;
@@ -247,15 +274,7 @@ function setupRowMenuActions() {
         window.location.href = `EmployeeDetail.html?id=${encodeURIComponent(employeeId)}`;
       } else if (action === "edit") {
         const emp = state.employees.find((e) => e.id === employeeId);
-        const newDept = prompt("Enter department:", emp ? emp.department : "Operations");
-        if (newDept) {
-          try {
-            await updateEmployee(employeeId, { department: newDept, status: "ACTIVE" });
-            fetchEmployees();
-          } catch (err) {
-            console.error("Error updating employee:", err);
-          }
-        }
+        if (emp) openEmployeeModal("edit", emp);
       } else if (action === "deactivate") {
         const emp = state.employees.find((e) => e.id === employeeId);
         if (emp && confirm(`Deactivate ${emp.name}?`)) {
@@ -264,6 +283,7 @@ function setupRowMenuActions() {
             fetchEmployees();
           } catch (err) {
             console.error("Error deactivating employee:", err);
+            alert(err.message || "Could not deactivate employee.");
           }
         }
       }
@@ -330,6 +350,87 @@ function setupSidebarNav() {
   });
 }
 
+let modalMode = "add";
+let editingEmployeeId = null;
+
+function openEmployeeModal(mode, emp = null) {
+  modalMode = mode;
+  editingEmployeeId = emp ? emp.id : null;
+
+  const overlay = document.getElementById("employee-modal-overlay");
+  const titleEl = document.getElementById("employee-modal-title");
+  const userIdField = document.getElementById("emp-userid-field");
+  const userIdInput = document.getElementById("emp-modal-userid");
+  const codeField = document.getElementById("emp-code-field");
+  const deptSelect = document.getElementById("emp-modal-department");
+  const posInput = document.getElementById("emp-modal-position");
+  const codeInput = document.getElementById("emp-modal-code");
+  const submitBtn = document.getElementById("employee-modal-submit");
+
+  if (mode === "edit" && emp) {
+    titleEl.textContent = `Edit ${emp.name}`;
+    userIdField.style.display = "none";
+    userIdInput.required = false;
+    codeField.style.display = "none";
+    deptSelect.value = DEPARTMENTS.includes(emp.department) ? emp.department : "Operations";
+    posInput.value = emp.position || "Staff";
+    submitBtn.textContent = "Save Changes";
+  } else {
+    titleEl.textContent = "Add Employee";
+    userIdField.style.display = "block";
+    userIdInput.required = true;
+    userIdInput.value = "";
+    codeField.style.display = "block";
+    codeInput.value = "";
+    deptSelect.value = "Operations";
+    posInput.value = "";
+    submitBtn.textContent = "Add Employee";
+  }
+
+  overlay.classList.add("open");
+}
+
+function setupEmployeeModal() {
+  const overlay = document.getElementById("employee-modal-overlay");
+  const closeBtn = document.getElementById("employee-modal-close");
+  const cancelBtn = document.getElementById("employee-modal-cancel");
+  const form = document.getElementById("employee-modal-form");
+
+  const closeModal = () => overlay.classList.remove("open");
+  closeBtn.addEventListener("click", closeModal);
+  cancelBtn.addEventListener("click", closeModal);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) closeModal();
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const department = document.getElementById("emp-modal-department").value;
+    const position = document.getElementById("emp-modal-position").value.trim() || "Staff";
+    const submitBtn = document.getElementById("employee-modal-submit");
+    submitBtn.disabled = true;
+
+    try {
+      if (modalMode === "edit" && editingEmployeeId) {
+        const res = await updateEmployee(editingEmployeeId, { department, position, status: "ACTIVE" });
+        alert(res.message || "Employee updated successfully.");
+      } else {
+        const userId = document.getElementById("emp-modal-userid").value.trim();
+        const employeeId = document.getElementById("emp-modal-code").value.trim() || undefined;
+        const res = await createEmployee({ userId, department, position, employeeId });
+        alert(res.message || "Employee attached successfully.");
+      }
+      closeModal();
+      fetchEmployees();
+    } catch (err) {
+      console.error("Employee modal error:", err);
+      alert(err.message || "Operation failed. Please check your inputs.");
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+}
+
 function setupMiscControls() {
   const sidebar = document.getElementById("sidebar");
   const toggleBtn = document.getElementById("sidebar-toggle");
@@ -354,20 +455,8 @@ function setupMiscControls() {
     localStorage.removeItem("ecoride_user");
     window.location.href = "Login.html";
   });
-  document.getElementById("add-employee-btn").addEventListener("click", async () => {
-    const userId = prompt("Enter existing Passenger User ID (UUID):");
-    if (!userId) return;
-    const department = prompt("Enter Department:", "Operations") || "Operations";
-    const position = prompt("Enter Position:", "Staff") || "Staff";
-    const employeeId = prompt("Enter Employee Code (optional):", "ACM-001") || undefined;
-    try {
-      const res = await createEmployee({ userId: userId.trim(), department, position, employeeId });
-      alert(res.message || "Employee attached successfully.");
-      fetchEmployees();
-    } catch (err) {
-      console.error("Add employee error:", err);
-      alert("Could not add employee. Please check the User ID.");
-    }
+  document.getElementById("add-employee-btn").addEventListener("click", () => {
+    openEmployeeModal("add");
   });
 
   const topSearch = document.getElementById("search-input");
@@ -393,10 +482,13 @@ setupFilterDropdown("status-filter", ["All", "Active", "Inactive"], (value) => {
   applyFilters();
 });
 
-hydrateUserHeader();
-setupRowMenuActions();
-setupTabs();
-setupSidebarNav();
-setupMiscControls();
-applyFilters();
-fetchEmployees();
+if (requireAuth()) {
+  hydrateUserHeader();
+  setupEmployeeModal();
+  setupRowMenuActions();
+  setupTabs();
+  setupSidebarNav();
+  setupMiscControls();
+  applyFilters();
+  fetchEmployees();
+}

@@ -2,6 +2,15 @@ const API_BASE = window.location.hostname.endsWith("vercel.app")
   ? "/api/v1"
   : "https://ecoride-backend-0ll4.onrender.com/api/v1";
 
+function requireAuth() {
+  const token = localStorage.getItem("ecoride_token");
+  if (!token) {
+    window.location.replace("Login.html");
+    return false;
+  }
+  return true;
+}
+
 function getAuthHeaders(extra = {}) {
   const token = localStorage.getItem("ecoride_token");
   return {
@@ -33,6 +42,7 @@ const state = {
   filtered: [],
   currentPage: 1,
   activeTab: "all",
+  dateFilter: "All",
   searchTerm: "",
 };
 
@@ -56,8 +66,9 @@ async function fetchBookings() {
     if (res.ok) {
       state.bookings = list.map((b, i) => ({
         id: b.id || b.bookingId || `BK-${i + 1}`,
-        from: b.pickupLocation || b.from || "—",
-        to: b.dropoffLocation || b.to || "—",
+        from: b.pickupLocation || b.pickupAddress || b.origin || b.from || "—",
+        to: b.dropoffLocation || b.dropoffAddress || b.destination || b.to || "—",
+        rawDate: b.scheduledAt || b.createdAt || b.date || null,
         date: b.date || (b.createdAt ? new Date(b.createdAt).toLocaleDateString() : "—"),
         time: b.time || (b.createdAt ? new Date(b.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""),
         requestedBy: b.passenger?.fullName || b.requestedBy || "Employee",
@@ -71,16 +82,38 @@ async function fetchBookings() {
   }
 }
 
+function matchesDateFilter(rawDate, filter) {
+  if (!filter || filter === "All") return true;
+  if (!rawDate) return false;
+  const d = new Date(rawDate);
+  if (Number.isNaN(d.getTime())) return true;
+  const now = new Date();
+  if (filter === "This Week") {
+    const weekAgo = new Date(now);
+    weekAgo.setDate(now.getDate() - 7);
+    return d >= weekAgo && d <= now;
+  }
+  if (filter === "This Month") {
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }
+  if (filter === "Last Month") {
+    const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    return d.getMonth() === prevMonth.getMonth() && d.getFullYear() === prevMonth.getFullYear();
+  }
+  return true;
+}
+
 function applyFilters() {
   state.filtered = state.bookings.filter((b) => {
     const matchesTab = state.activeTab === "all" || b.status === state.activeTab;
+    const matchesDate = matchesDateFilter(b.rawDate, state.dateFilter);
     const matchesSearch =
       state.searchTerm === "" ||
       b.requestedBy.toLowerCase().includes(state.searchTerm) ||
       b.id.toLowerCase().includes(state.searchTerm) ||
       b.from.toLowerCase().includes(state.searchTerm) ||
       b.to.toLowerCase().includes(state.searchTerm);
-    return matchesTab && matchesSearch;
+    return matchesTab && matchesDate && matchesSearch;
   });
   state.currentPage = 1;
   renderTable();
@@ -103,7 +136,7 @@ function renderTable() {
     tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><i class="ph ph-identification-card"></i><p>No bookings found in your corporate account yet. Click "Create Booking" to schedule a ride.</p></div></td></tr>`;
   } else {
     tbody.innerHTML = pageItems.map((b) => `
-      <tr>
+      <tr data-id="${b.id}" style="cursor:pointer;">
         <td class="booking-id-cell">${b.id}</td>
         <td><span class="route-cell">${b.from} <i class="ph ph-arrow-right"></i> ${b.to}</span></td>
         <td class="booking-date-cell">${b.date}${b.time ? `. &nbsp;${b.time}` : ""}</td>
@@ -117,6 +150,12 @@ function renderTable() {
         <td><span class="status-badge ${b.status}">${capitalize(b.status)}</span></td>
       </tr>
     `).join("");
+
+    tbody.querySelectorAll("tr[data-id]").forEach((row) => {
+      row.addEventListener("click", () => {
+        window.location.href = `TripDetail.html?id=${encodeURIComponent(row.dataset.id)}`;
+      });
+    });
   }
 
   renderPagination();
@@ -130,7 +169,12 @@ function renderPagination() {
 
   const pageButtons = [];
   const maxVisible = 3;
-  for (let p = 1; p <= Math.min(maxVisible, totalPages); p++) {
+  let startPage = Math.max(1, state.currentPage - 1);
+  let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+  if (endPage - startPage + 1 < maxVisible) {
+    startPage = Math.max(1, endPage - maxVisible + 1);
+  }
+  for (let p = startPage; p <= endPage; p++) {
     pageButtons.push(p);
   }
 
@@ -138,8 +182,9 @@ function renderPagination() {
     <span>Showing ${Math.max(0, shown)} of ${total} bookings</span>
     <div class="pagination-controls">
       <button class="page-btn" id="prev-page" ${state.currentPage === 1 ? "disabled" : ""}><i class="ph ph-caret-left"></i></button>
+      ${startPage > 1 ? `<button class="page-btn" data-page="1">1</button>${startPage > 2 ? `<span class="page-ellipsis">•••</span>` : ""}` : ""}
       ${pageButtons.map((p) => `<button class="page-btn ${p === state.currentPage ? "active" : ""}" data-page="${p}">${p}</button>`).join("")}
-      ${totalPages > maxVisible ? `<span class="page-ellipsis">•••</span><button class="page-btn ${state.currentPage === totalPages ? "active" : ""}" data-page="${totalPages}">${totalPages}</button>` : ""}
+      ${endPage < totalPages ? `${endPage < totalPages - 1 ? `<span class="page-ellipsis">•••</span>` : ""}<button class="page-btn" data-page="${totalPages}">${totalPages}</button>` : ""}
       <button class="page-btn" id="next-page" ${state.currentPage === totalPages ? "disabled" : ""}><i class="ph ph-caret-right"></i></button>
     </div>
   `;
@@ -258,19 +303,24 @@ function setupMiscControls() {
   });
 }
 
-setupFilterDropdown("date-range-filter", ["All", "This Week", "This Month", "Last Month"], () => applyFilters());
-setupFilterDropdown("booking-status-filter", ["All", "Pending", "Approved", "Cancelled"], (value) => {
-  const tabMap = { All: "all", Pending: "pending", Approved: "approved", Cancelled: "cancelled" };
-  state.activeTab = tabMap[value];
-  document.querySelectorAll("#booking-tabs .emp-tab").forEach((t) => {
-    t.classList.toggle("active", t.dataset.tab === state.activeTab);
+if (requireAuth()) {
+  setupFilterDropdown("date-range-filter", ["All", "This Week", "This Month", "Last Month"], (value) => {
+    state.dateFilter = value;
+    applyFilters();
   });
-  applyFilters();
-});
+  setupFilterDropdown("booking-status-filter", ["All", "Pending", "Approved", "Cancelled"], (value) => {
+    const tabMap = { All: "all", Pending: "pending", Approved: "approved", Cancelled: "cancelled" };
+    state.activeTab = tabMap[value];
+    document.querySelectorAll("#booking-tabs .emp-tab").forEach((t) => {
+      t.classList.toggle("active", t.dataset.tab === state.activeTab);
+    });
+    applyFilters();
+  });
 
-hydrateUserHeader();
-setupTabs();
-setupSidebarNav();
-setupMiscControls();
-applyFilters();
-fetchBookings();
+  hydrateUserHeader();
+  setupTabs();
+  setupSidebarNav();
+  setupMiscControls();
+  applyFilters();
+  fetchBookings();
+}

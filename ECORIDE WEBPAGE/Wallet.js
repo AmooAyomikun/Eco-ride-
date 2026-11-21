@@ -2,6 +2,15 @@ const API_BASE = window.location.hostname.endsWith("vercel.app")
   ? "/api/v1"
   : "https://ecoride-backend-0ll4.onrender.com/api/v1";
 
+function requireAuth() {
+  const token = localStorage.getItem("ecoride_token");
+  if (!token) {
+    window.location.replace("Login.html");
+    return false;
+  }
+  return true;
+}
+
 function getAuthHeaders(extra = {}) {
   const token = localStorage.getItem("ecoride_token");
   return {
@@ -33,12 +42,18 @@ const state = {
   filtered: [],
   currentPage: 1,
   activeTab: "all",
+  searchTerm: "",
 };
 
 function applyFilters() {
   state.filtered = state.transactions.filter((t) => {
-    if (state.activeTab === "all") return true;
-    return t.type === state.activeTab;
+    const matchesTab = state.activeTab === "all" || t.type === state.activeTab;
+    const matchesSearch =
+      state.searchTerm === "" ||
+      t.id.toLowerCase().includes(state.searchTerm) ||
+      t.description.toLowerCase().includes(state.searchTerm) ||
+      t.type.toLowerCase().includes(state.searchTerm);
+    return matchesTab && matchesSearch;
   });
   state.currentPage = 1;
   renderTable();
@@ -78,7 +93,12 @@ function renderPagination() {
 
   const pageButtons = [];
   const maxVisible = 3;
-  for (let p = 1; p <= Math.min(maxVisible, totalPages); p++) {
+  let startPage = Math.max(1, state.currentPage - 1);
+  let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+  if (endPage - startPage + 1 < maxVisible) {
+    startPage = Math.max(1, endPage - maxVisible + 1);
+  }
+  for (let p = startPage; p <= endPage; p++) {
     pageButtons.push(p);
   }
 
@@ -86,8 +106,9 @@ function renderPagination() {
     <span>Showing ${Math.max(0, shown)} of ${total} transactions</span>
     <div class="pagination-controls">
       <button class="page-btn" id="prev-page" ${state.currentPage === 1 ? "disabled" : ""}><i class="ph ph-caret-left"></i></button>
+      ${startPage > 1 ? `<button class="page-btn" data-page="1">1</button>${startPage > 2 ? `<span class="page-ellipsis">•••</span>` : ""}` : ""}
       ${pageButtons.map((p) => `<button class="page-btn ${p === state.currentPage ? "active" : ""}" data-page="${p}">${p}</button>`).join("")}
-      ${totalPages > maxVisible ? `<span class="page-ellipsis">•••</span><button class="page-btn" data-page="${totalPages}">${totalPages}</button>` : ""}
+      ${endPage < totalPages ? `${endPage < totalPages - 1 ? `<span class="page-ellipsis">•••</span>` : ""}<button class="page-btn" data-page="${totalPages}">${totalPages}</button>` : ""}
       <button class="page-btn" id="next-page" ${state.currentPage === totalPages ? "disabled" : ""}><i class="ph ph-caret-right"></i></button>
     </div>
   `;
@@ -187,6 +208,14 @@ function setupMiscControls() {
   document.getElementById("withdraw-btn").addEventListener("click", () => {
     alert("Withdraw is coming soon.");
   });
+
+  const searchInput = document.querySelector(".search-bar input");
+  if (searchInput) {
+    searchInput.addEventListener("input", (e) => {
+      state.searchTerm = e.target.value.trim().toLowerCase();
+      applyFilters();
+    });
+  }
 }
 
 // GET /wallets and GET /wallets/transactions
@@ -247,10 +276,12 @@ async function fetchWallet() {
   }
 }
 
-hydrateUserHeader();
-setupTabs();
-setupTopUpModal();
-setupSidebarNav();
-setupMiscControls();
-applyFilters();
-fetchWallet();
+if (requireAuth()) {
+  hydrateUserHeader();
+  setupTabs();
+  setupTopUpModal();
+  setupSidebarNav();
+  setupMiscControls();
+  applyFilters();
+  fetchWallet();
+}

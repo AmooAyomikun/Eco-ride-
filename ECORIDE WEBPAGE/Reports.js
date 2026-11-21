@@ -2,6 +2,15 @@ const API_BASE = window.location.hostname.endsWith("vercel.app")
   ? "/api/v1"
   : "https://ecoride-backend-0ll4.onrender.com/api/v1";
 
+function requireAuth() {
+  const token = localStorage.getItem("ecoride_token");
+  if (!token) {
+    window.location.replace("Login.html");
+    return false;
+  }
+  return true;
+}
+
 function getAuthHeaders(extra = {}) {
   const token = localStorage.getItem("ecoride_token");
   return {
@@ -169,6 +178,22 @@ function setupMiscControls() {
   document.getElementById("view-all-reports-bottom-btn").addEventListener("click", () => {
     alert("Full reports archive is coming soon.");
   });
+
+  const searchInput = document.querySelector(".search-bar input");
+  if (searchInput) {
+    searchInput.addEventListener("input", (e) => {
+      const q = e.target.value.trim().toLowerCase();
+      if (!q) {
+        renderRecentReports(state.recentReports);
+        return;
+      }
+      renderRecentReports(
+        state.recentReports.filter((r) =>
+          `${r.title} ${r.generated}`.toLowerCase().includes(q)
+        )
+      );
+    });
+  }
 }
 
 async function fetchReportsData() {
@@ -235,11 +260,13 @@ async function fetchReportsData() {
   }
 }
 
-hydrateUserHeader();
-renderReportTypeCards(REPORT_TYPES);
-renderRecentReports(state.recentReports);
-renderSummary(state);
-setupGenerateReport();
-setupSidebarNav();
-setupMiscControls();
-fetchReportsData();
+if (requireAuth()) {
+  hydrateUserHeader();
+  renderReportTypeCards(REPORT_TYPES);
+  renderRecentReports(state.recentReports);
+  renderSummary(state);
+  setupGenerateReport();
+  setupSidebarNav();
+  setupMiscControls();
+  fetchReportsData();
+}

@@ -2,6 +2,15 @@ const API_BASE = window.location.hostname.endsWith("vercel.app")
   ? "/api/v1"
   : "https://ecoride-backend-0ll4.onrender.com/api/v1";
 
+function requireAuth() {
+  const token = localStorage.getItem("ecoride_token");
+  if (!token) {
+    window.location.replace("Login.html");
+    return false;
+  }
+  return true;
+}
+
 function getAuthHeaders(extra = {}) {
   const token = localStorage.getItem("ecoride_token");
   return {
@@ -295,11 +304,13 @@ async function fetchEmployeeDetail() {
   }
 }
 
-hydrateUserHeader();
-const initialEmployee = getEmptyEmployee(getEmployeeIdFromUrl());
-renderEmployeeView(initialEmployee);
-setupActivityFilter();
-setupDetailTabs();
-setupSidebarNav();
-setupMiscControls();
-fetchEmployeeDetail();
+if (requireAuth()) {
+  hydrateUserHeader();
+  const initialEmployee = getEmptyEmployee(getEmployeeIdFromUrl());
+  renderEmployeeView(initialEmployee);
+  setupActivityFilter();
+  setupDetailTabs();
+  setupSidebarNav();
+  setupMiscControls();
+  fetchEmployeeDetail();
+}

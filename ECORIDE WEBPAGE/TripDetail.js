@@ -2,6 +2,15 @@ const API_BASE = window.location.hostname.endsWith("vercel.app")
   ? "/api/v1"
   : "https://ecoride-backend-0ll4.onrender.com/api/v1";
 
+function requireAuth() {
+  const token = localStorage.getItem("ecoride_token");
+  if (!token) {
+    window.location.replace("Login.html");
+    return false;
+  }
+  return true;
+}
+
 function getAuthHeaders(extra = {}) {
   const token = localStorage.getItem("ecoride_token");
   return {
@@ -346,8 +355,10 @@ async function fetchTripDetail() {
   }
 }
 
-hydrateUserHeader();
-renderTripView(getEmptyTrip(getTripIdFromUrl()));
-setupSidebarNav();
-setupMiscControls();
-fetchTripDetail();
+if (requireAuth()) {
+  hydrateUserHeader();
+  renderTripView(getEmptyTrip(getTripIdFromUrl()));
+  setupSidebarNav();
+  setupMiscControls();
+  fetchTripDetail();
+}
