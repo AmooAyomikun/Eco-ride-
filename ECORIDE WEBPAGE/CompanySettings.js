@@ -144,8 +144,26 @@ function renderNotificationToggles(prefs) {
   });
 }
 
+function loadNotificationPrefs() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("ecoride_notif_prefs") || "null");
+    if (saved && typeof saved === "object") {
+      return MOCK_NOTIFICATIONS.map((p) => ({
+        ...p,
+        on: saved[p.key] !== undefined ? Boolean(saved[p.key]) : p.on,
+      }));
+    }
+  } catch (e) {}
+  return MOCK_NOTIFICATIONS;
+}
+
 function setupNotificationsSave() {
   document.getElementById("save-notifications-btn").addEventListener("click", () => {
+    const prefs = {};
+    document.querySelectorAll("#toggle-rows .toggle-switch").forEach((btn) => {
+      prefs[btn.dataset.key] = btn.classList.contains("on");
+    });
+    localStorage.setItem("ecoride_notif_prefs", JSON.stringify(prefs));
     alert("Notification preferences saved.");
   });
 }
@@ -202,7 +220,7 @@ function setupMiscControls() {
   }
 
   document.getElementById("contact-support-btn").addEventListener("click", () => {
-    alert("Contact Support is coming soon.");
+    window.location.href = "mailto:support@ecoride.com?subject=EcoRide%20Corporate%20Support";
   });
   document.getElementById("logout-btn").addEventListener("click", () => {
     localStorage.removeItem("ecoride_token");
@@ -333,7 +351,7 @@ if (requireAuth()) {
   hydrateUserHeader();
   renderVerificationBanner("PENDING");
   renderDocuments(DEFAULT_DOCUMENTS);
-  renderNotificationToggles(MOCK_NOTIFICATIONS);
+  renderNotificationToggles(loadNotificationPrefs());
   renderAdmins();
   setupTabs();
   setupProfileSave();

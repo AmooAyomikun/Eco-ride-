@@ -43,7 +43,8 @@ const REPORT_TYPES = [
 ];
 
 const state = {
-  recentReports: [],
+  recentReports: JSON.parse(localStorage.getItem("ecoride_recent_reports") || "[]"),
+  showAllReports: false,
   summaryPeriod: "Current Period",
   summary: [
     { icon: "ph-car", iconType: "ph", label: "Total Trips", value: "0", deltaHighlight: "0%", deltaText: "vs last period" },
@@ -53,6 +54,69 @@ const state = {
     { icon: "ph-star", iconType: "ph-fill", label: "Average Rating", value: "0.0", deltaHighlight: "0%", deltaText: "vs last period" },
   ],
 };
+
+function saveRecentReports() {
+  try {
+    localStorage.setItem("ecoride_recent_reports", JSON.stringify(state.recentReports.slice(0, 20)));
+  } catch (err) {
+    console.error("Could not save reports:", err);
+  }
+}
+
+function downloadReportCsv(report) {
+  const rows = [
+    ["Report Title", report.title],
+    ["Details", report.generated],
+    [],
+    ["Metric", "Value"],
+    ...state.summary.map((s) => [s.label, s.value]),
+  ];
+  const csvContent = rows
+    .map((r) => r.map((cell) => `"${String(cell || "").replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${report.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function printReportPdf(report) {
+  const win = window.open("", "_blank", "width=800,height=600");
+  if (!win) {
+    downloadReportCsv(report);
+    return;
+  }
+  const rowsHtml = state.summary
+    .map((s) => `<tr><td style="padding:10px;border-bottom:1px solid #e5e7eb;">${s.label}</td><td style="padding:10px;border-bottom:1px solid #e5e7eb;font-weight:700;">${s.value}</td></tr>`)
+    .join("");
+  win.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head><title>${report.title}</title></head>
+    <body style="font-family:Arial,sans-serif;padding:32px;color:#112028;">
+      <h2 style="margin-bottom:4px;">EcoRide Corporate — ${report.title}</h2>
+      <p style="color:#6b7280;font-size:13px;margin-top:0;">${report.generated}</p>
+      <table style="width:100%;border-collapse:collapse;margin-top:24px;">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:10px;border-bottom:2px solid #112028;">Metric</th>
+            <th style="text-align:left;padding:10px;border-bottom:2px solid #112028;">Value</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </body>
+    </html>
+  `);
+  win.document.close();
+  win.focus();
+  win.print();
+}
 
 function renderReportTypeCards(types) {
   const container = document.getElementById("report-type-cards");
@@ -68,9 +132,20 @@ function renderReportTypeCards(types) {
     </button>
   `).join("");
 
+  const selectMap = {
+    "Trips Reports": "Trips Report",
+    "Spend Report": "Spend Report",
+    "Employee Report": "Employee Report",
+    "Custom Report": "All Reports",
+  };
+
   container.querySelectorAll(".report-type-card").forEach((card) => {
     card.addEventListener("click", () => {
-      alert(`${card.dataset.title} is coming soon.`);
+      const select = document.getElementById("filter-report-type");
+      if (select && selectMap[card.dataset.title]) {
+        select.value = selectMap[card.dataset.title];
+      }
+      document.getElementById("generate-report-btn").click();
     });
   });
 }
@@ -82,7 +157,9 @@ function renderRecentReports(reports) {
     return;
   }
 
-  list.innerHTML = reports.map((r, i) => `
+  const visibleReports = state.showAllReports ? reports : reports.slice(0, 5);
+
+  list.innerHTML = visibleReports.map((r, i) => `
     <li class="recent-report-item">
       <span class="recent-report-icon"><i class="ph ph-file-text"></i></span>
       <div class="recent-report-meta">
@@ -91,19 +168,21 @@ function renderRecentReports(reports) {
       </div>
       <div class="report-download-group">
         <button class="report-pdf-btn" data-index="${i}">PDF</button>
-        <button class="report-more-btn" data-index="${i}" aria-label="Export options"><i class="ph-bold ph-caret-down"></i></button>
+        <button class="report-more-btn" data-index="${i}" title="Download CSV" aria-label="Download CSV"><i class="ph-bold ph-caret-down"></i></button>
       </div>
     </li>
   `).join("");
 
   list.querySelectorAll(".report-pdf-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      alert("Downloading this report is coming soon.");
+      const report = visibleReports[Number(btn.dataset.index)];
+      if (report) printReportPdf(report);
     });
   });
   list.querySelectorAll(".report-more-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      alert("More export options are coming soon.");
+      const report = visibleReports[Number(btn.dataset.index)];
+      if (report) downloadReportCsv(report);
     });
   });
 }
@@ -135,6 +214,7 @@ function setupGenerateReport() {
       title: `${reportType} - ${department}`,
       generated: `Generated on ${nowLabel} (${dateRange})`,
     });
+    saveRecentReports();
     renderRecentReports(state.recentReports);
   });
 }
@@ -165,19 +245,22 @@ function setupMiscControls() {
   }
 
   document.getElementById("contact-support-btn").addEventListener("click", () => {
-    alert("Contact Support is coming soon.");
+    window.location.href = "mailto:support@ecoride.com?subject=EcoRide%20Corporate%20Support";
   });
   document.getElementById("logout-btn").addEventListener("click", () => {
     localStorage.removeItem("ecoride_token");
     localStorage.removeItem("ecoride_user");
     window.location.href = "Login.html";
   });
-  document.getElementById("view-all-reports-btn").addEventListener("click", () => {
-    alert("Full reports archive is coming soon.");
-  });
-  document.getElementById("view-all-reports-bottom-btn").addEventListener("click", () => {
-    alert("Full reports archive is coming soon.");
-  });
+  const toggleViewAll = () => {
+    state.showAllReports = !state.showAllReports;
+    document.getElementById("view-all-reports-bottom-btn").textContent = state.showAllReports
+      ? "Show Less"
+      : "View All Reports";
+    renderRecentReports(state.recentReports);
+  };
+  document.getElementById("view-all-reports-btn").addEventListener("click", toggleViewAll);
+  document.getElementById("view-all-reports-bottom-btn").addEventListener("click", toggleViewAll);
 
   const searchInput = document.querySelector(".search-bar input");
   if (searchInput) {

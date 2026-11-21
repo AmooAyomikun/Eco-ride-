@@ -224,25 +224,75 @@ function setupMiscControls() {
   }
 
   document.getElementById("contact-support-btn").addEventListener("click", () => {
-    alert("Contact Support is coming soon.");
+    window.location.href = "mailto:support@ecoride.com?subject=EcoRide%20Corporate%20Support";
   });
   document.getElementById("logout-btn").addEventListener("click", () => {
     localStorage.removeItem("ecoride_token");
     localStorage.removeItem("ecoride_user");
     window.location.href = "Login.html";
   });
-  document.getElementById("edit-employee-btn").addEventListener("click", () => {
-    alert("Edit Employee form is coming soon.");
+  document.getElementById("edit-employee-btn").addEventListener("click", async () => {
+    const employeeId = getEmployeeIdFromUrl();
+    if (!employeeId) return;
+    const currentDept = document.getElementById("profile-dept").textContent.replace(" Department", "").trim();
+    const currentTitle = document.getElementById("profile-title").textContent.trim();
+    const department = prompt("Update Department:", currentDept !== "—" ? currentDept : "Operations");
+    if (department === null) return;
+    const position = prompt("Update Position:", currentTitle !== "—" ? currentTitle : "Staff");
+    if (position === null) return;
+    try {
+      const res = await fetch(`${API_BASE}/corporate/employees/${encodeURIComponent(employeeId)}`, {
+        method: "PATCH",
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
+        credentials: "include",
+        body: JSON.stringify({
+          department: department.trim() || "Operations",
+          position: position.trim() || "Staff",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || data.error || "Could not update employee.");
+        return;
+      }
+      alert(data.message || "Employee updated.");
+      fetchEmployeeDetail();
+    } catch (err) {
+      console.error("Edit employee error:", err);
+      alert("Network error while updating employee.");
+    }
   });
-  document.getElementById("more-actions-btn").addEventListener("click", () => {
-    alert("More actions menu is coming soon.");
+  document.getElementById("more-actions-btn").addEventListener("click", async () => {
+    const employeeId = getEmployeeIdFromUrl();
+    if (!employeeId) return;
+    const isCurrentlyActive = document.getElementById("profile-status").classList.contains("active");
+    const nextStatus = isCurrentlyActive ? "INACTIVE" : "ACTIVE";
+    const actionLabel = isCurrentlyActive ? "Deactivate" : "Reactivate";
+    if (!confirm(`${actionLabel} this employee?`)) return;
+    try {
+      const res = await fetch(`${API_BASE}/corporate/employees/${encodeURIComponent(employeeId)}`, {
+        method: "PATCH",
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
+        credentials: "include",
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || data.error || `Could not ${actionLabel.toLowerCase()} employee.`);
+        return;
+      }
+      fetchEmployeeDetail();
+    } catch (err) {
+      console.error("Status toggle error:", err);
+    }
   });
   document.getElementById("view-all-activity").addEventListener("click", () => {
-    alert("Full activity history is coming soon.");
+    document.getElementById("activity-filter").value = "All Activity";
+    renderActivity(currentActivity);
   });
   document.getElementById("preferred-view-all").addEventListener("click", (e) => {
     e.preventDefault();
-    alert("All preferred routes coming soon.");
+    window.location.href = "Trips.html";
   });
 }
 

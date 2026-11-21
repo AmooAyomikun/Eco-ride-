@@ -198,7 +198,7 @@ function setupMiscControls() {
   }
 
   document.getElementById("contact-support-btn").addEventListener("click", () => {
-    alert("Contact Support is coming soon.");
+    window.location.href = "mailto:support@ecoride.com?subject=EcoRide%20Corporate%20Support";
   });
   document.getElementById("logout-btn").addEventListener("click", () => {
     localStorage.removeItem("ecoride_token");

@@ -217,7 +217,7 @@ function setupMiscControls() {
   }
 
   document.getElementById("contact-support-btn").addEventListener("click", () => {
-    alert("Contact Support is coming soon.");
+    window.location.href = "mailto:support@ecoride.com?subject=EcoRide%20Corporate%20Support";
   });
   document.getElementById("logout-btn").addEventListener("click", () => {
     localStorage.removeItem("ecoride_token");
@@ -225,16 +225,25 @@ function setupMiscControls() {
     window.location.href = "Login.html";
   });
   document.getElementById("add-note-btn").addEventListener("click", () => {
-    alert("Add Note is coming soon.");
+    const note = prompt("Add an internal note for this trip:");
+    if (note && note.trim()) {
+      const list = document.getElementById("timeline-list");
+      const li = document.createElement("li");
+      li.className = "timeline-item";
+      li.innerHTML = `<div class="timeline-title">Note: ${note.trim()}</div><div class="timeline-time">${new Date().toLocaleString()}</div>`;
+      list.prepend(li);
+    }
   });
   document.getElementById("report-issue-btn").addEventListener("click", () => {
-    alert("Report Issue is coming soon.");
+    const tripId = getTripIdFromUrl();
+    window.location.href = `mailto:support@ecoride.com?subject=${encodeURIComponent(`Trip Issue Report: ${tripId}`)}`;
   });
 
-  ["more-actions-dropdown", "print-export-dropdown"].forEach((id) => {
-    document.getElementById(id).querySelector("button").addEventListener("click", () => {
-      alert("This menu is coming soon.");
-    });
+  document.getElementById("print-export-dropdown").querySelector("button").addEventListener("click", () => {
+    window.print();
+  });
+  document.getElementById("more-actions-dropdown").querySelector("button").addEventListener("click", () => {
+    window.location.href = "Trips.html";
   });
 }
 
