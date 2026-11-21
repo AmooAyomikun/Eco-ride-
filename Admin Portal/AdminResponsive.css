@@ -390,6 +390,23 @@ table {
   display: block;
 }
 
+.admin-sidebar-close {
+  display: none;
+  position: absolute;
+  top: 14px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background-color: #ffffff;
+  color: #374151;
+  font-size: 17px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
 @media (max-width: 1120px) {
   .stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
@@ -418,7 +435,14 @@ table {
     position: fixed !important;
     top: 0;
     left: 0;
+    width: 260px !important;
     height: 100vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 18px 16px !important;
+    gap: 10px !important;
+    overflow-y: auto !important;
     z-index: 300 !important;
     transform: translateX(-100%);
     box-shadow: 4px 0 24px rgba(0, 0, 0, 0.14);
@@ -428,25 +452,137 @@ table {
     transform: translateX(0);
   }
 
+  .sidebar .logo {
+    display: flex !important;
+    margin-bottom: 10px !important;
+    padding-right: 36px !important;
+  }
+
+  .admin-sidebar-close {
+    display: inline-flex;
+  }
+
+  .sidebar .support-container {
+    margin-top: auto !important;
+    margin-bottom: 0 !important;
+    padding: 12px 0 0 0 !important;
+    height: auto !important;
+    border: none !important;
+  }
+
+  .sidebar .support-card {
+    border: 1px solid #e5e7eb !important;
+    border-radius: 12px !important;
+    padding: 12px !important;
+    margin: 0 !important;
+    height: auto !important;
+  }
+
+  .sidebar .logout-btn {
+    margin-top: 10px !important;
+    margin-bottom: 0 !important;
+    height: auto !important;
+    padding: 0 !important;
+    border: none !important;
+    position: static !important;
+  }
+
+  .sidebar .logout-btn a {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 12px !important;
+    border-radius: 10px;
+    border: 1px solid #fee2e2;
+    background-color: #fef2f2;
+  }
+
+  .sidebar .nav-menu {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    height: auto !important;
+    gap: 6px !important;
+    margin-top: 6px !important;
+  }
+
+  .sidebar .nav-menu a {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    width: 100% !important;
+    height: 44px !important;
+    padding: 10px 14px !important;
+    gap: 12px !important;
+    font-size: 15px !important;
+    font-weight: 500 !important;
+    border-radius: 12px !important;
+  }
+
+  .sidebar .nav-menu a i {
+    font-size: 19px !important;
+    flex-shrink: 0;
+  }
+
+  .sidebar .nav-menu a.active {
+    border-radius: 50px !important;
+    font-weight: 600 !important;
+  }
+
+  .sidebar .nav-menu a span {
+    display: inline !important;
+  }
+
   .admin-menu-btn {
     display: inline-flex;
   }
 
   main,
   .main-content {
-    padding: 16px 16px 32px !important;
+    padding: 16px 14px 32px !important;
+  }
+
+  .top-header {
+    margin-bottom: 14px !important;
   }
 
   .top-tab {
-    flex-wrap: wrap;
+    flex-wrap: wrap !important;
     gap: 10px !important;
   }
 
   .top-tab h2 {
-    font-size: 20px !important;
+    flex: 1;
+    min-width: 0;
+    font-size: 18px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .top-tab .search-box,
+  .top-tab .search-bar,
+  .top-tab .search-input-wrap {
+    order: 3;
+    flex-basis: 100% !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
   .header-right {
+    gap: 8px !important;
+    flex-shrink: 0;
+  }
+
+  .section-header,
+  .table-header,
+  .drivers-header,
+  .passengers-header {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
     gap: 10px !important;
   }
 
@@ -455,7 +591,6 @@ table {
   .search-input-wrap {
     width: 100% !important;
     max-width: 100% !important;
-    order: 3;
   }
 
   .tabs {
@@ -485,28 +620,74 @@ table {
   .status-grid {
     grid-template-columns: 1fr !important;
   }
+
+  body .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  body .stat-card {
+    padding: 12px !important;
+    min-height: 86px !important;
+  }
+
+  body .stat-header {
+    gap: 6px !important;
+    margin-bottom: 8px !important;
+  }
+
+  body .stat-card h3 {
+    font-size: 18px !important;
+  }
+
+  body .stat-title {
+    font-size: 11px !important;
+    line-height: 1.3 !important;
+  }
+
+  body .stat-trend-1,
+  body .stat-trend-2,
+  body .stat-trend-3,
+  body .stat-trend-4 {
+    font-size: 11px !important;
+  }
+
+  .responsive-table,
+  .table-container {
+    background-color: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 8px 10px;
+  }
+
+  .filter-btn {
+    padding: 6px 12px !important;
+    font-size: 12px !important;
+    border-radius: 999px !important;
+  }
 }
 
 @media (max-width: 560px) {
-  .stats-grid {
-    grid-template-columns: 1fr !important;
+  body .user-profile {
+    padding: 4px 8px !important;
+    gap: 4px !important;
+    width: auto !important;
   }
 
-  .user-profile .user-role {
-    display: none;
+  body .user-profile .user-info,
+  body .user-badge .user-info {
+    display: none !important;
   }
 
-  .user-profile .user-name {
-    max-width: 96px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  body .user-profile .ph {
+    margin-left: 2px !important;
   }
 
   .breakdown-content {
-    flex-direction: column;
-    align-items: flex-start !important;
-    gap: 16px;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px;
   }
 
   .feed-section {
@@ -516,6 +697,12 @@ table {
   .detail-grid,
   .profile-grid,
   .info-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 350px) {
+  .stats-grid {
     grid-template-columns: 1fr !important;
   }
 }

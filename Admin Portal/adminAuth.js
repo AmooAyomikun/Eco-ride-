@@ -27,6 +27,17 @@
         backdrop.classList.remove("active");
       };
 
+      if (!document.getElementById("admin-sidebar-close")) {
+        const closeBtn = document.createElement("button");
+        closeBtn.type = "button";
+        closeBtn.id = "admin-sidebar-close";
+        closeBtn.className = "admin-sidebar-close";
+        closeBtn.setAttribute("aria-label", "Close navigation");
+        closeBtn.innerHTML = '<i class="ph ph-x"></i>';
+        closeBtn.addEventListener("click", closeSidebar);
+        sidebar.insertBefore(closeBtn, sidebar.firstChild);
+      }
+
       btn.addEventListener("click", () => {
         sidebar.classList.toggle("open");
         backdrop.classList.toggle("active");
