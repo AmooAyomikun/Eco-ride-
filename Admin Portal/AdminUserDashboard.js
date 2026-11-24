@@ -30,8 +30,8 @@ function generateMockUsers(count, seedOffset) {
 }
 
 const state = {
-  drivers: generateMockUsers(14, 0),
-  passengers: generateMockUsers(14, 100),
+  drivers: [],
+  passengers: [],
   driversSearch: "",
   passengersSearch: "",
   driversExpanded: false,

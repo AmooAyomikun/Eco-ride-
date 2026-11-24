@@ -33,7 +33,7 @@ function generateMockBookings(count) {
 }
 
 const state = {
-  bookings: generateMockBookings(20),
+  bookings: [],
   activeFilter: "all",
   searchTerm: "",
 };
@@ -105,10 +105,7 @@ function setupSearch() {
 // ---------------------------------------------------------------
 // Notification bell + profile dropdown (same shared pattern)
 // ---------------------------------------------------------------
-const MOCK_NOTIFICATIONS = [
-  { icon: "ph-bell", title: "New driver verification submitted", time: "10 mins ago" },
-  { icon: "ph-warning", title: "Payment dispute flagged", time: "1 hour ago" },
-];
+const MOCK_NOTIFICATIONS = [];
 
 function setupNotifications() {
   const bell = document.getElementById("notif-bell");

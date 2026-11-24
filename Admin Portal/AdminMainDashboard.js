@@ -6,64 +6,17 @@
 // backend). Everything below reads from mock arrays; swap for real
 // fetch() calls once those endpoints exist.
 
-const MOCK_NOTIFICATIONS = [
-    { icon: "ph-bell", title: "New driver verification submitted", time: "10 mins ago" },
-    { icon: "ph-warning", title: "Payment dispute flagged", time: "1 hour ago" },
-    { icon: "ph-user-plus", title: "42 new user signups today", time: "3 hours ago" },
-  ];
-  
-  const MOCK_ACTIVITY_FEED = [
-    {
-      icon: "ph-bell", title: "Pending Review", sub: "Adaeze Okonkwo Nm verification",
-      badge: "Passenger", status: "pending", statusLabel: "Pending",
-      date: "May 21, 2024", time: "10:30 AM", admin: "Admin User",
-      linkTo: "AdminVerificationPage.html",
-    },
-    {
-      icon: "ph-car", title: "Weekend Ride Discount!", sub: "Enjoy up to 20% off on all Economy ride...",
-      badge: "All Users", status: "sent", statusLabel: "Sent",
-      date: "May 21, 2024", time: "10:30 AM", admin: "Admin User",
-      linkTo: "AdminUserDashboard.html",
-    },
-    {
-      icon: "ph-gift", title: "Weekend Ride Discount!", sub: "Enjoy up to 20% off on all Economy ride...",
-      badge: "All Users", status: "scheduled", statusLabel: "Schedule",
-      date: "May 21, 2024", time: "10:30 AM", admin: "Admin User",
-      linkTo: "AdminUserDashboard.html",
-    },
-    {
-      icon: "ph-wrench", title: "Weekend Ride Discount!", sub: "Enjoy up to 20% off on all Economy ride...",
-      badge: "All Users", status: "sent", statusLabel: "Sent",
-      date: "May 21, 2024", time: "10:30 AM", admin: "Admin User",
-      linkTo: "AdminUserDashboard.html",
-    },
-    {
-      icon: "ph-warning", title: "Failed Verification", sub: "Olatunji Kanu drivers license verification",
-      badge: "Driver", status: "flagged", statusLabel: "Flagged",
-      date: "May 21, 2024", time: "10:30 AM", admin: "Admin User",
-      linkTo: "AdminVerificationPage.html",
-    },
-    {
-      icon: "ph-wallet", title: "Weekend Ride Discount!", sub: "Enjoy up to 20% off on all Economy ride...",
-      badge: "All Users", status: "sent", statusLabel: "Sent",
-      date: "May 21, 2024", time: "10:30 AM", admin: "Admin User",
-      linkTo: "AdminPaymentPage.html",
-    },
-  ];
-  
-  const MOCK_REVENUE = [
-    { label: "Jan", value: 200000 },
-    { label: "Feb", value: 375000 },
-    { label: "Mar", value: 300000 },
-    { label: "Apr", value: 400000 },
-    { label: "May", value: 475000 },
-  ];
-  
-  const MOCK_USER_BREAKDOWN = [
-    { label: "Passengers", value: 129, color: "#f1c40f" },
-    { label: "Drivers", value: 70, color: "#f39c12" },
-    { label: "Corporate", value: 10, color: "#bdc3c7" },
-  ];
+const MOCK_NOTIFICATIONS = [];
+
+const MOCK_ACTIVITY_FEED = [];
+
+const MOCK_REVENUE = [];
+
+const MOCK_USER_BREAKDOWN = [
+  { label: "Passengers", value: 0, color: "#f1c40f" },
+  { label: "Drivers", value: 0, color: "#f39c12" },
+  { label: "Corporate", value: 0, color: "#bdc3c7" },
+];
   
   // ---------------------------------------------------------------
   // Notification bell + panel
@@ -74,7 +27,8 @@ const MOCK_NOTIFICATIONS = [
     const dot = document.getElementById("notif-dot");
     const list = document.getElementById("notif-panel-list");
   
-    list.innerHTML = MOCK_NOTIFICATIONS.map((n) => `
+    list.innerHTML = MOCK_NOTIFICATIONS.length
+      ? MOCK_NOTIFICATIONS.map((n) => `
       <li class="notif-panel-item">
         <i class="ph-fill ${n.icon}"></i>
         <div>
@@ -82,7 +36,8 @@ const MOCK_NOTIFICATIONS = [
           <div class="notif-panel-item-time">${n.time}</div>
         </div>
       </li>
-    `).join("");
+    `).join("")
+      : `<li class="notif-panel-item"><div class="notif-panel-item-title" style="color:#6b7280;">No new notifications.</div></li>`;
   
     if (MOCK_NOTIFICATIONS.length > 0) dot.classList.add("visible");
   
@@ -129,6 +84,10 @@ const MOCK_NOTIFICATIONS = [
   // ---------------------------------------------------------------
   function renderActivityFeed(items) {
     const tbody = document.getElementById("feed-table-body");
+    if (!Array.isArray(items) || items.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#6b7280;padding:28px 12px;">No platform activity recorded yet.</td></tr>`;
+      return;
+    }
     tbody.innerHTML = items.map((item, i) => `
       <tr data-index="${i}">
         <td>
@@ -223,6 +182,10 @@ const MOCK_NOTIFICATIONS = [
   function renderRevenueChart(data) {
     const container = document.getElementById("revenue-bar-chart");
     const tooltip = document.getElementById("bar-tooltip");
+    if (!Array.isArray(data) || data.length === 0) {
+      container.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;width:100%;height:140px;color:#6b7280;font-size:13px;">No revenue data recorded yet.</div>`;
+      return;
+    }
     const maxValue = 500000; // matches the fixed y-axis scale (500k/300k/100k/0)
   
     data.forEach((d) => {
@@ -254,7 +217,7 @@ const MOCK_NOTIFICATIONS = [
     const total = breakdown.reduce((sum, b) => sum + b.value, 0);
   
     donut.addEventListener("mouseenter", () => {
-      tooltip.innerHTML = breakdown.map((b) => `${b.label}: ${b.value} (${Math.round((b.value / total) * 100)}%)`).join("<br>");
+      tooltip.innerHTML = breakdown.map((b) => `${b.label}: ${b.value} (${total > 0 ? Math.round((b.value / total) * 100) : 0}%)`).join("<br>");
       tooltip.classList.add("visible");
     });
     donut.addEventListener("mouseleave", () => {

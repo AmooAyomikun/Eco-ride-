@@ -25,7 +25,7 @@ function generateMockVerifications(count) {
 }
 
 const state = {
-  verifications: generateMockVerifications(15),
+  verifications: [],
   activeFilter: "all",
 };
 
@@ -83,10 +83,7 @@ function setupFilters() {
 // ---------------------------------------------------------------
 // Notification bell + profile dropdown (same pattern as other admin pages)
 // ---------------------------------------------------------------
-const MOCK_NOTIFICATIONS = [
-  { icon: "ph-bell", title: "New driver verification submitted", time: "10 mins ago" },
-  { icon: "ph-warning", title: "Payment dispute flagged", time: "1 hour ago" },
-];
+const MOCK_NOTIFICATIONS = [];
 
 function setupNotifications() {
   const bell = document.getElementById("notif-bell");
