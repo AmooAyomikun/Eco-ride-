@@ -64,6 +64,15 @@ form.addEventListener("submit", async (e) => {
       return;
     }
 
+    if (data.user?.role && data.user.role !== "PLATFORM_ADMIN") {
+      errorBox.textContent = "Access denied: a PLATFORM_ADMIN account is required.";
+      if (submitBtn) {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+      }
+      return;
+    }
+
     if (data.token) {
       localStorage.setItem("ecoride_admin_token", data.token);
     }
@@ -90,9 +99,25 @@ if (googleButton) {
 }
 
 if (forgotLink) {
-  forgotLink.addEventListener("click", (e) => {
+  forgotLink.addEventListener("click", async (e) => {
     e.preventDefault();
-    errorBox.textContent = "Contact your Super Admin or backend administrator to reset your admin password.";
+    const email = (emailInput.value.trim() || prompt("Enter your admin email address:") || "").trim();
+    if (!email) return;
+    errorBox.style.color = "#374151";
+    errorBox.textContent = "Sending reset link...";
+    try {
+      const res = await fetch(`${API_BASE}/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      errorBox.style.color = res.ok ? "#16a34a" : "#dc2626";
+      errorBox.textContent = data.message || (res.ok ? "Reset link sent to your email." : "Could not send reset link.");
+    } catch (err) {
+      errorBox.style.color = "#dc2626";
+      errorBox.textContent = "Network error while requesting password reset.";
+    }
   });
 }
 

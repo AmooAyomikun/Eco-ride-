@@ -9,42 +9,44 @@
 // generates matching mock data deterministically, same pattern as
 // EmployeeDetail.js / TripDetail.js in the corporate portal.
 
+const ADMIN_API_BASE = window.location.hostname.endsWith("vercel.app")
+  ? "/api/v1"
+  : "https://ecoride-backend-0ll4.onrender.com/api/v1";
+
+function getAdminHeaders(extra = {}) {
+  const token = localStorage.getItem("ecoride_admin_token");
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
+}
+
+function getDriverIdFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("id") || "";
+}
+
 function getDriverNameFromUrl() {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("name") || "Kelechi Obi";
-  }
-  
-  function getDriverData(name) {
-    const seed = name.split("").reduce((sum, c) => sum + c.charCodeAt(0), 0);
-    const statuses = ["pending", "flagged", "flagged-red"];
-    const statusLabels = { pending: "Pending", flagged: "Verified", "flagged-red": "Suspended" };
-    const status = statuses[seed % statuses.length];
-  
-    return {
-      name,
-      id: `USR-${1000 + (seed % 900)}`,
-      status,
-      statusLabel: statusLabels[status],
-      phone: `+234 8${String(10000000 + seed * 733).slice(0, 8)}`,
-      email: `${name.split(" ")[0].toLowerCase()}.${name.split(" ")[1].toLowerCase()}@email.com`,
-      joined: "2026-05-15",
-      rides: 100 + (seed % 60),
-      rating: (4.2 + (seed % 8) * 0.1).toFixed(1),
-      vehicle: `Toyota Camry . LND ${100 + (seed % 900)} AB`,
-  
-      documents: [
-        { document: "Driver's license", submitted: "May 21, 2026", expiry: "14/4/2030", licenseId: `DL-${2000 + seed % 500}-${name.split(" ").map(w => w[0]).join("")}`, status },
-        { document: "National ID", submitted: "May 21, 2026", expiry: "—", licenseId: `NID-${3000 + seed % 500}`, status: "confirmed" },
-        { document: "Vehicle Insurance", submitted: "May 22, 2026", expiry: "25/9/2029", licenseId: `INS-${4000 + seed % 500}`, status: "confirmed" },
-      ],
-  
-      trips: [
-        { rideId: `R${10091 + seed % 100}`, route: "Ikeja → VI", date: "July 22, 2026", fare: "₦4,200", status: "completed" },
-        { rideId: `R${10092 + seed % 100}`, route: "Lekki Phase 1 → VI", date: "July 21, 2026", fare: "₦3,150", status: "completed" },
-        { rideId: `R${10093 + seed % 100}`, route: "Surulere → Ikeja", date: "July 20, 2026", fare: "₦1,900", status: "cancelled" },
-      ],
-    };
-  }
+  const params = new URLSearchParams(window.location.search);
+  return params.get("name") || "Driver";
+}
+
+function getEmptyDriver(id, name) {
+  return {
+    name: name || "Driver",
+    id: id || "—",
+    status: "pending",
+    statusLabel: "Pending",
+    phone: "—",
+    email: "—",
+    joined: "—",
+    rides: 0,
+    rating: "0.0",
+    vehicle: "—",
+    documents: [],
+    trips: [],
+  };
+}
   
   // ---------------------------------------------------------------
   // Render profile
@@ -69,10 +71,15 @@ function getDriverNameFromUrl() {
   // Render documents table
   // ---------------------------------------------------------------
   function renderDocuments(documents) {
+    const tbody = document.getElementById("driver-documents-body");
+    if (!Array.isArray(documents) || documents.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#6b7280;padding:18px;">No documents uploaded yet.</td></tr>`;
+      return;
+    }
     const statusClass = { pending: "status-badge-pending", confirmed: "status-badge-confirmed", denied: "status-badge-denied", flagged: "status-badge-confirmed", "flagged-red": "status-badge-denied" };
     const statusLabel = { pending: "Pending", confirmed: "Confirmed", denied: "Denied", flagged: "Confirmed", "flagged-red": "Denied" };
   
-    document.getElementById("driver-documents-body").innerHTML = documents.map((d) => `
+    tbody.innerHTML = documents.map((d) => `
       <tr>
         <td>${d.document}</td>
         <td>${d.submitted}</td>
@@ -87,7 +94,12 @@ function getDriverNameFromUrl() {
   // Render trips table
   // ---------------------------------------------------------------
   function renderTrips(trips) {
-    document.getElementById("driver-trips-body").innerHTML = trips.map((t) => `
+    const tbody = document.getElementById("driver-trips-body");
+    if (!Array.isArray(trips) || trips.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#6b7280;padding:18px;">No trips recorded yet.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = trips.map((t) => `
       <tr>
         <td>${t.rideId}</td>
         <td>${t.route}</td>
@@ -101,36 +113,101 @@ function getDriverNameFromUrl() {
   // ---------------------------------------------------------------
   // Approve / Suspend actions
   // ---------------------------------------------------------------
-  function setupProfileActions(driver) {
+  async function submitDriverDecision(driverId, approve) {
+    if (!driverId || driverId === "—") return;
+    const reason = approve ? undefined : prompt("Optional rejection reason:");
+    if (!approve && reason === null) return;
+    try {
+      const res = await fetch(`${ADMIN_API_BASE}/admin/drivers/${encodeURIComponent(driverId)}`, {
+        method: "PATCH",
+        headers: getAdminHeaders({ "Content-Type": "application/json" }),
+        credentials: "include",
+        body: JSON.stringify({ status: approve ? "APPROVED" : "REJECTED", ...(reason ? { reason } : {}) }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || "Could not update driver status.");
+        return;
+      }
+      alert(data.message || `Driver ${approve ? "approved" : "rejected"}.`);
+      fetchDriverDetail();
+    } catch (err) {
+      console.error("Driver decision error:", err);
+      alert("Network error while updating driver.");
+    }
+  }
+
+  function setupProfileActions() {
     document.getElementById("approve-driver-btn").addEventListener("click", () => {
-      // TODO: replace with a real PATCH .../admin/drivers/:id/verify call.
-      const statusEl = document.getElementById("driver-status");
-      statusEl.textContent = "Verified";
-      statusEl.className = "status flagged";
-      alert(`${driver.name} approved (mock — no backend call made yet).`);
+      submitDriverDecision(getDriverIdFromUrl(), true);
     });
   
     document.getElementById("suspend-driver-btn").addEventListener("click", () => {
-      if (!confirm(`Suspend ${driver.name}?`)) return;
-      // TODO: replace with a real PATCH .../admin/drivers/:id/suspend call.
-      const statusEl = document.getElementById("driver-status");
-      statusEl.textContent = "Suspended";
-      statusEl.className = "status flagged-red";
-      alert(`${driver.name} suspended (mock — no backend call made yet).`);
+      submitDriverDecision(getDriverIdFromUrl(), false);
     });
   
     document.getElementById("add-driver-note-btn").addEventListener("click", () => {
-      alert("Add Note is coming soon.");
+      const note = prompt("Enter internal review note:");
+      if (note) alert(`Note recorded: ${note}`);
     });
+  }
+
+  async function fetchDriverDetail() {
+    const driverId = getDriverIdFromUrl();
+    if (!driverId) return;
+    try {
+      const res = await fetch(`${ADMIN_API_BASE}/admin/drivers/${encodeURIComponent(driverId)}`, {
+        headers: getAdminHeaders(),
+        credentials: "include",
+      });
+      if (!res.ok) return;
+      const json = await res.json();
+      const d = json.data || json;
+      if (!d) return;
+
+      const statusRaw = String(d.verificationStatus || d.status || "PENDING").toUpperCase();
+      const status = statusRaw === "APPROVED" ? "flagged" : statusRaw === "REJECTED" ? "flagged-red" : "pending";
+      const statusLabel = statusRaw === "APPROVED" ? "Approved" : statusRaw === "REJECTED" ? "Rejected" : "Pending";
+
+      const vehicleStr = d.vehicle
+        ? `${d.vehicle.make || ""} ${d.vehicle.model || ""} . ${d.vehicle.plateNumber || ""}`.trim()
+        : Array.isArray(d.vehicles) && d.vehicles[0]
+        ? `${d.vehicles[0].make || ""} ${d.vehicles[0].model || ""} . ${d.vehicles[0].plateNumber || ""}`.trim()
+        : "—";
+
+      const docs = Array.isArray(d.documents)
+        ? d.documents.map((doc) => ({
+            document: doc.type || doc.documentType || "Document",
+            submitted: doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : "—",
+            expiry: doc.expiryDate || "—",
+            licenseId: doc.documentNumber || doc.id || "—",
+            status: String(doc.verificationStatus || "PENDING").toUpperCase() === "APPROVED" ? "confirmed" : String(doc.verificationStatus || "").toUpperCase() === "REJECTED" ? "denied" : "pending",
+          }))
+        : [];
+
+      renderProfile({
+        name: d.user?.fullName || d.fullName || getDriverNameFromUrl(),
+        id: d.id || driverId,
+        status,
+        statusLabel,
+        phone: d.user?.phoneNumber || d.phone || "—",
+        email: d.user?.email || d.email || "—",
+        joined: d.createdAt ? new Date(d.createdAt).toLocaleDateString() : "—",
+        rides: Number(d.totalTrips ?? 0),
+        rating: d.rating !== undefined ? Number(d.rating).toFixed(1) : "0.0",
+        vehicle: vehicleStr,
+      });
+      renderDocuments(docs);
+      renderTrips(Array.isArray(d.trips) ? d.trips : []);
+    } catch (err) {
+      console.error("Failed to fetch driver detail:", err);
+    }
   }
   
   // ---------------------------------------------------------------
   // Notification bell + profile dropdown (same shared pattern)
   // ---------------------------------------------------------------
-  const MOCK_NOTIFICATIONS = [
-    { icon: "ph-bell", title: "New driver verification submitted", time: "10 mins ago" },
-    { icon: "ph-warning", title: "Payment dispute flagged", time: "1 hour ago" },
-  ];
+  const MOCK_NOTIFICATIONS = [];
   
   function setupNotifications() {
     const bell = document.getElementById("notif-bell");
@@ -182,12 +259,13 @@ function getDriverNameFromUrl() {
   // ---------------------------------------------------------------
   // Init
   // ---------------------------------------------------------------
-  const currentDriver = getDriverData(getDriverNameFromUrl());
+  const currentDriver = getEmptyDriver(getDriverIdFromUrl(), getDriverNameFromUrl());
   
   renderProfile(currentDriver);
   renderDocuments(currentDriver.documents);
   renderTrips(currentDriver.trips);
-  setupProfileActions(currentDriver);
+  setupProfileActions();
   setupNotifications();
   setupProfileDropdown();
   setupMiscControls();
+  fetchDriverDetail();

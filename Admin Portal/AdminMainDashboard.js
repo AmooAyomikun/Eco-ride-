@@ -6,6 +6,15 @@
 // backend). Everything below reads from mock arrays; swap for real
 // fetch() calls once those endpoints exist.
 
+const ADMIN_API_BASE = window.location.hostname.endsWith("vercel.app")
+  ? "/api/v1"
+  : "https://ecoride-backend-0ll4.onrender.com/api/v1";
+
+function getAdminHeaders() {
+  const token = localStorage.getItem("ecoride_admin_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 const MOCK_NOTIFICATIONS = [];
 
 const MOCK_ACTIVITY_FEED = [];
@@ -235,6 +244,117 @@ const MOCK_USER_BREAKDOWN = [
   }
   
   // ---------------------------------------------------------------
+  // Fetch live admin overview
+  // ---------------------------------------------------------------
+  async function fetchAdminOverview() {
+    try {
+      const [dashRes, usersRes, driversRes, passengersRes, corpRes] = await Promise.allSettled([
+        fetch(`${ADMIN_API_BASE}/admin/dashboard`, { headers: getAdminHeaders(), credentials: "include" }),
+        fetch(`${ADMIN_API_BASE}/admin/users`, { headers: getAdminHeaders(), credentials: "include" }),
+        fetch(`${ADMIN_API_BASE}/admin/drivers`, { headers: getAdminHeaders(), credentials: "include" }),
+        fetch(`${ADMIN_API_BASE}/admin/passengers`, { headers: getAdminHeaders(), credentials: "include" }),
+        fetch(`${ADMIN_API_BASE}/admin/corporates`, { headers: getAdminHeaders(), credentials: "include" }),
+      ]);
+
+      const extractList = async (r) => {
+        if (r.status !== "fulfilled" || !r.value.ok) return [];
+        const j = await r.value.json();
+        return Array.isArray(j.data) ? j.data : Array.isArray(j) ? j : [];
+      };
+
+      const [users, drivers, passengers, corporates] = await Promise.all([
+        extractList(usersRes),
+        extractList(driversRes),
+        extractList(passengersRes),
+        extractList(corpRes),
+      ]);
+
+      let totalUsers = users.length || (drivers.length + passengers.length + corporates.length);
+      let activeDrivers = drivers.filter((d) => String(d.verificationStatus || d.status || "").toUpperCase() === "APPROVED").length || drivers.length;
+      let totalRevenue = 0;
+      let totalOrders = 0;
+      let activityItems = [];
+
+      if (dashRes.status === "fulfilled" && dashRes.value.ok) {
+        const dashJson = await dashRes.value.json();
+        const d = dashJson.data || dashJson;
+        if (d && typeof d === "object") {
+          if (d.totalUsers !== undefined) totalUsers = Number(d.totalUsers);
+          if (d.activeDrivers !== undefined) activeDrivers = Number(d.activeDrivers);
+          if (d.totalRevenue !== undefined) totalRevenue = Number(d.totalRevenue);
+          if (d.totalOrders !== undefined || d.totalBookings !== undefined) {
+            totalOrders = Number(d.totalOrders ?? d.totalBookings);
+          }
+          if (Array.isArray(d.revenueChart || d.monthlyRevenue)) {
+            renderRevenueChart(d.revenueChart || d.monthlyRevenue);
+          }
+          if (Array.isArray(d.activityFeed)) {
+            activityItems = d.activityFeed;
+          }
+        }
+      }
+
+      const statValues = document.querySelectorAll(".stats-grid .stat-card h3");
+      if (statValues[0]) statValues[0].textContent = totalUsers.toLocaleString();
+      if (statValues[1]) statValues[1].textContent = activeDrivers.toLocaleString();
+      if (statValues[2]) statValues[2].textContent = `₦${totalRevenue.toLocaleString()}`;
+      if (statValues[3]) statValues[3].textContent = totalOrders.toLocaleString();
+
+      const chartVal = document.querySelector(".user-breakdown .chart-value");
+      if (chartVal) chartVal.textContent = totalUsers.toLocaleString();
+      const revHeading = document.querySelector(".revenue-chart h4");
+      if (revHeading) revHeading.textContent = `Total Revenue = ₦${totalRevenue.toLocaleString()}`;
+
+      const listItems = document.querySelectorAll(".breakdown-list li");
+      if (listItems[0]) listItems[0].innerHTML = `<span class="dot yellow"></span> ${passengers.length} passengers`;
+      if (listItems[1]) listItems[1].innerHTML = `<span class="dot light-yellow"></span> ${drivers.length} drivers`;
+      if (listItems[2]) listItems[2].innerHTML = `<span class="dot gray-dot"></span> ${corporates.length} corporate`;
+
+      setupDonutTooltip([
+        { label: "Passengers", value: passengers.length, color: "#f1c40f" },
+        { label: "Drivers", value: drivers.length, color: "#f39c12" },
+        { label: "Corporate", value: corporates.length, color: "#bdc3c7" },
+      ]);
+
+      if (activityItems.length === 0) {
+        const pendingDrivers = drivers.filter((d) => String(d.verificationStatus || "").toUpperCase() === "PENDING").slice(0, 3);
+        const pendingCorps = corporates.filter((c) => String(c.verificationStatus || "").toUpperCase() === "PENDING").slice(0, 3);
+        activityItems = [
+          ...pendingDrivers.map((d) => ({
+            icon: "ph-car",
+            title: "Driver Verification Pending",
+            sub: d.user?.fullName || d.fullName || d.email || "Driver",
+            badge: "Driver",
+            status: "pending",
+            statusLabel: "Pending",
+            date: d.createdAt ? new Date(d.createdAt).toLocaleDateString() : "—",
+            time: "",
+            admin: "Admin",
+            linkTo: "AdminVerificationPage.html",
+          })),
+          ...pendingCorps.map((c) => ({
+            icon: "ph-buildings",
+            title: "Corporate Verification Pending",
+            sub: c.companyName || c.email || "Company",
+            badge: "Corporate",
+            status: "pending",
+            statusLabel: "Pending",
+            date: c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "—",
+            time: "",
+            admin: "Admin",
+            linkTo: "AdminVerificationPage.html",
+          })),
+        ];
+      }
+
+      renderActivityFeed(activityItems);
+      setupRowMenu(activityItems);
+    } catch (err) {
+      console.error("Failed to fetch admin overview:", err);
+    }
+  }
+
+  // ---------------------------------------------------------------
   // Init
   // ---------------------------------------------------------------
   setupNotifications();
@@ -244,3 +364,4 @@ const MOCK_USER_BREAKDOWN = [
   renderRevenueChart(MOCK_REVENUE);
   setupDonutTooltip(MOCK_USER_BREAKDOWN);
   setupMiscControls();
+  fetchAdminOverview();

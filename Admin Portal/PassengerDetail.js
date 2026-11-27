@@ -7,44 +7,44 @@
 // ⚠️ MOCK DATA — no confirmed GET /api/v1/admin/passengers/:id endpoint.
 // Reads ?name= from the URL (set by AdminUserDashboard.js row clicks).
 
+const ADMIN_API_BASE = window.location.hostname.endsWith("vercel.app")
+  ? "/api/v1"
+  : "https://ecoride-backend-0ll4.onrender.com/api/v1";
+
+function getAdminHeaders(extra = {}) {
+  const token = localStorage.getItem("ecoride_admin_token");
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
+}
+
+function getPassengerIdFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("id") || "";
+}
+
 function getPassengerNameFromUrl() {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("name") || "Yemi Soyinka";
-  }
-  
-  function getPassengerData(name) {
-    const seed = name.split("").reduce((sum, c) => sum + c.charCodeAt(0), 0);
-    const statuses = ["pending", "flagged", "flagged-red"];
-    const statusLabels = { pending: "Pending", flagged: "Verified", "flagged-red": "Suspended" };
-    const status = statuses[seed % statuses.length];
-    const paymentMethods = ["Card (Visa •••• 4821)", "Bank Transfer", "Wallet"];
-    const drivers = ["Kelechi Obi", "Yemi Soyinka", "Tunde Fashola", "Ngozi Adeyemi"];
-  
-    return {
-      name,
-      id: `USR-${1100 + (seed % 900)}`,
-      status,
-      statusLabel: statusLabels[status],
-      phone: `+234 8${String(10000000 + seed * 733).slice(0, 8)}`,
-      email: `${name.split(" ")[0].toLowerCase()}.${name.split(" ")[1].toLowerCase()}@email.com`,
-      joined: "2026-05-15",
-      rides: 100 + (seed % 60),
-      rating: (4.2 + (seed % 8) * 0.1).toFixed(1),
-      paymentMethod: paymentMethods[seed % paymentMethods.length],
-  
-      rideHistory: [
-        { rideId: `R${10091 + seed % 100}`, route: "Ikeja → VI", driver: drivers[seed % drivers.length], date: "July 22, 2026", fare: "₦4,200", status: "completed" },
-        { rideId: `R${10092 + seed % 100}`, route: "Lekki Phase 1 → VI", driver: drivers[(seed + 1) % drivers.length], date: "July 21, 2026", fare: "₦3,150", status: "completed" },
-        { rideId: `R${10093 + seed % 100}`, route: "Surulere → Ikeja", driver: drivers[(seed + 2) % drivers.length], date: "July 20, 2026", fare: "₦1,900", status: "cancelled" },
-      ],
-  
-      payments: [
-        { txnId: `TXN-${5000 + seed % 500}`, date: "July 22, 2026", method: paymentMethods[seed % paymentMethods.length], amount: "₦4,200", status: "confirmed" },
-        { txnId: `TXN-${5001 + seed % 500}`, date: "July 21, 2026", method: paymentMethods[seed % paymentMethods.length], amount: "₦3,150", status: "confirmed" },
-        { txnId: `TXN-${5002 + seed % 500}`, date: "July 20, 2026", method: paymentMethods[seed % paymentMethods.length], amount: "₦1,900", status: "denied" },
-      ],
-    };
-  }
+  const params = new URLSearchParams(window.location.search);
+  return params.get("name") || "Passenger";
+}
+
+function getEmptyPassenger(id, name) {
+  return {
+    name: name || "Passenger",
+    id: id || "—",
+    status: "pending",
+    statusLabel: "Pending",
+    phone: "—",
+    email: "—",
+    joined: "—",
+    rides: 0,
+    rating: "0.0",
+    paymentMethod: "—",
+    rideHistory: [],
+    payments: [],
+  };
+}
   
   // ---------------------------------------------------------------
   // Render profile
@@ -69,7 +69,12 @@ function getPassengerNameFromUrl() {
   // Render ride history
   // ---------------------------------------------------------------
   function renderRideHistory(rides) {
-    document.getElementById("passenger-rides-body").innerHTML = rides.map((r) => `
+    const tbody = document.getElementById("passenger-rides-body");
+    if (!Array.isArray(rides) || rides.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#6b7280;padding:18px;">No rides recorded yet.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = rides.map((r) => `
       <tr>
         <td>${r.rideId}</td>
         <td>${r.route}</td>
@@ -85,10 +90,15 @@ function getPassengerNameFromUrl() {
   // Render payment history
   // ---------------------------------------------------------------
   function renderPayments(payments) {
+    const tbody = document.getElementById("passenger-payments-body");
+    if (!Array.isArray(payments) || payments.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#6b7280;padding:18px;">No payment records yet.</td></tr>`;
+      return;
+    }
     const statusClass = { confirmed: "status-badge-confirmed", pending: "status-badge-pending", denied: "status-badge-denied" };
     const statusLabel = { confirmed: "Confirmed", pending: "Pending", denied: "Denied" };
   
-    document.getElementById("passenger-payments-body").innerHTML = payments.map((p) => `
+    tbody.innerHTML = payments.map((p) => `
       <tr>
         <td>${p.txnId}</td>
         <td>${p.date}</td>
@@ -102,36 +112,85 @@ function getPassengerNameFromUrl() {
   // ---------------------------------------------------------------
   // Verify / Suspend actions
   // ---------------------------------------------------------------
-  function setupProfileActions(passenger) {
+  async function submitPassengerDecision(passengerId, approve) {
+    if (!passengerId || passengerId === "—") return;
+    const reason = approve ? undefined : prompt("Optional rejection reason:");
+    if (!approve && reason === null) return;
+    try {
+      const res = await fetch(`${ADMIN_API_BASE}/admin/passengers/${encodeURIComponent(passengerId)}`, {
+        method: "PATCH",
+        headers: getAdminHeaders({ "Content-Type": "application/json" }),
+        credentials: "include",
+        body: JSON.stringify({ status: approve ? "APPROVED" : "REJECTED", ...(reason ? { reason } : {}) }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || "Could not update passenger status.");
+        return;
+      }
+      alert(data.message || `Passenger ${approve ? "approved" : "rejected"}.`);
+      fetchPassengerDetail();
+    } catch (err) {
+      console.error("Passenger decision error:", err);
+      alert("Network error while updating passenger.");
+    }
+  }
+
+  function setupProfileActions() {
     document.getElementById("verify-passenger-btn").addEventListener("click", () => {
-      // TODO: replace with a real PATCH .../admin/passengers/:id/verify call.
-      const statusEl = document.getElementById("passenger-status");
-      statusEl.textContent = "Verified";
-      statusEl.className = "status flagged";
-      alert(`${passenger.name} verified (mock — no backend call made yet).`);
+      submitPassengerDecision(getPassengerIdFromUrl(), true);
     });
   
     document.getElementById("suspend-passenger-btn").addEventListener("click", () => {
-      if (!confirm(`Suspend ${passenger.name}?`)) return;
-      // TODO: replace with a real PATCH .../admin/passengers/:id/suspend call.
-      const statusEl = document.getElementById("passenger-status");
-      statusEl.textContent = "Suspended";
-      statusEl.className = "status flagged-red";
-      alert(`${passenger.name} suspended (mock — no backend call made yet).`);
+      submitPassengerDecision(getPassengerIdFromUrl(), false);
     });
   
     document.getElementById("add-passenger-note-btn").addEventListener("click", () => {
-      alert("Add Note is coming soon.");
+      const note = prompt("Enter internal review note:");
+      if (note) alert(`Note recorded: ${note}`);
     });
+  }
+
+  async function fetchPassengerDetail() {
+    const passengerId = getPassengerIdFromUrl();
+    if (!passengerId) return;
+    try {
+      const res = await fetch(`${ADMIN_API_BASE}/admin/passengers/${encodeURIComponent(passengerId)}`, {
+        headers: getAdminHeaders(),
+        credentials: "include",
+      });
+      if (!res.ok) return;
+      const json = await res.json();
+      const d = json.data || json;
+      if (!d) return;
+
+      const statusRaw = String(d.verificationStatus || d.status || "PENDING").toUpperCase();
+      const status = statusRaw === "APPROVED" ? "flagged" : statusRaw === "REJECTED" ? "flagged-red" : "pending";
+      const statusLabel = statusRaw === "APPROVED" ? "Approved" : statusRaw === "REJECTED" ? "Rejected" : "Pending";
+
+      renderProfile({
+        name: d.user?.fullName || d.fullName || getPassengerNameFromUrl(),
+        id: d.id || passengerId,
+        status,
+        statusLabel,
+        phone: d.user?.phoneNumber || d.phone || "—",
+        email: d.user?.email || d.email || "—",
+        joined: d.createdAt ? new Date(d.createdAt).toLocaleDateString() : "—",
+        rides: Number(d.totalTrips ?? 0),
+        rating: d.rating !== undefined ? Number(d.rating).toFixed(1) : "0.0",
+        paymentMethod: d.preferredPaymentMethod || "—",
+      });
+      renderRideHistory(Array.isArray(d.rides) ? d.rides : []);
+      renderPayments(Array.isArray(d.payments) ? d.payments : []);
+    } catch (err) {
+      console.error("Failed to fetch passenger detail:", err);
+    }
   }
   
   // ---------------------------------------------------------------
   // Notification bell + profile dropdown (same shared pattern)
   // ---------------------------------------------------------------
-  const MOCK_NOTIFICATIONS = [
-    { icon: "ph-bell", title: "New driver verification submitted", time: "10 mins ago" },
-    { icon: "ph-warning", title: "Payment dispute flagged", time: "1 hour ago" },
-  ];
+  const MOCK_NOTIFICATIONS = [];
   
   function setupNotifications() {
     const bell = document.getElementById("notif-bell");
@@ -183,12 +242,13 @@ function getPassengerNameFromUrl() {
   // ---------------------------------------------------------------
   // Init
   // ---------------------------------------------------------------
-  const currentPassenger = getPassengerData(getPassengerNameFromUrl());
+  const currentPassenger = getEmptyPassenger(getPassengerIdFromUrl(), getPassengerNameFromUrl());
   
   renderProfile(currentPassenger);
   renderRideHistory(currentPassenger.rideHistory);
   renderPayments(currentPassenger.payments);
-  setupProfileActions(currentPassenger);
+  setupProfileActions();
   setupNotifications();
   setupProfileDropdown();
   setupMiscControls();
+  fetchPassengerDetail();

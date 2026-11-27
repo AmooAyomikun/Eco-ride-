@@ -4,6 +4,18 @@
 // admin page). Swap generateMockUsers() for real fetch() calls once
 // GET /api/v1/admin/drivers and .../passengers (or similar) exist.
 
+const ADMIN_API_BASE = window.location.hostname.endsWith("vercel.app")
+  ? "/api/v1"
+  : "https://ecoride-backend-0ll4.onrender.com/api/v1";
+
+function getAdminHeaders(extra = {}) {
+  const token = localStorage.getItem("ecoride_admin_token");
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
+}
+
 const INITIAL_VISIBLE = 5;
 
 const NAMES = ["Tunde Fashola", "Yemi Soyinka", "Kelechi Obi", "Ngozi Adeyemi", "Chuka Nwankwo", "Bisi Adekunle", "Femi Balogun", "Amara Okeke", "Segun Okafor", "Ijeoma Eze", "Musa Bello", "Halima Sani"];
@@ -140,29 +152,102 @@ function closeRowMenu() {
   document.getElementById("user-row-menu").classList.remove("open");
 }
 
+function mapAdminStatus(raw) {
+  const s = String(raw || "PENDING").toUpperCase();
+  if (s === "APPROVED" || s === "VERIFIED" || s === "ACTIVE") return "flagged";
+  if (s === "REJECTED" || s === "SUSPENDED" || s === "INACTIVE") return "flagged-red";
+  return "pending";
+}
+
+function normalizeUserRecord(u, idx, fallbackPrefix) {
+  const userObj = u.user || u;
+  return {
+    id: u.id || userObj.id || `${fallbackPrefix}-${idx + 1}`,
+    name: userObj.fullName || userObj.name || userObj.email || `${fallbackPrefix} ${idx + 1}`,
+    phone: userObj.phoneNumber || userObj.phone || "—",
+    email: userObj.email || "—",
+    joined: u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "—",
+    rides: Number(u.totalTrips ?? u.ridesCount ?? 0),
+    rating: u.rating !== undefined ? Number(u.rating).toFixed(1) : "0.0",
+    status: mapAdminStatus(u.verificationStatus || userObj.status),
+  };
+}
+
+async function fetchAdminUsers() {
+  try {
+    const [driversRes, passengersRes] = await Promise.allSettled([
+      fetch(`${ADMIN_API_BASE}/admin/drivers`, { headers: getAdminHeaders(), credentials: "include" }),
+      fetch(`${ADMIN_API_BASE}/admin/passengers`, { headers: getAdminHeaders(), credentials: "include" }),
+    ]);
+
+    if (driversRes.status === "fulfilled" && driversRes.value.ok) {
+      const dj = await driversRes.value.json();
+      const dList = Array.isArray(dj.data) ? dj.data : Array.isArray(dj) ? dj : [];
+      state.drivers = dList.map((u, i) => normalizeUserRecord(u, i, "Driver"));
+    }
+
+    if (passengersRes.status === "fulfilled" && passengersRes.value.ok) {
+      const pj = await passengersRes.value.json();
+      const pList = Array.isArray(pj.data) ? pj.data : Array.isArray(pj) ? pj : [];
+      state.passengers = pList.map((u, i) => normalizeUserRecord(u, i, "Passenger"));
+    }
+
+    renderAll();
+  } catch (err) {
+    console.error("Failed to fetch admin users:", err);
+  }
+}
+
 function setupRowMenuActions() {
   const menu = document.getElementById("user-row-menu");
   menu.querySelectorAll("button").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       const id = menu.dataset.id;
       const found = findUserById(id);
       const action = btn.dataset.action;
       closeRowMenu();
       if (!found) return;
       const { user, type } = found;
+      const endpoint = type === "driver" ? "drivers" : "passengers";
 
       if (action === "view") {
         const detailPage = type === "driver" ? "DriverDetail.html" : "PassengerDetail.html";
-        window.location.href = `${detailPage}?name=${encodeURIComponent(user.name)}`;
+        window.location.href = `${detailPage}?id=${encodeURIComponent(user.id)}&name=${encodeURIComponent(user.name)}`;
       } else if (action === "verify") {
-        // TODO: replace with a real PATCH .../users/:id/verify call.
-        user.status = "flagged"; // matches this CSS's (unusually-named) "verified/good standing" green state
-        renderAll();
+        try {
+          const res = await fetch(`${ADMIN_API_BASE}/admin/${endpoint}/${encodeURIComponent(user.id)}`, {
+            method: "PATCH",
+            headers: getAdminHeaders({ "Content-Type": "application/json" }),
+            credentials: "include",
+            body: JSON.stringify({ status: "APPROVED" }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            alert(data.message || "Could not approve user.");
+            return;
+          }
+          fetchAdminUsers();
+        } catch (err) {
+          console.error("Verify error:", err);
+        }
       } else if (action === "suspend") {
-        if (confirm(`Suspend ${user.name}?`)) {
-          // TODO: replace with a real PATCH .../users/:id/suspend call.
-          user.status = "flagged-red";
-          renderAll();
+        const reason = prompt(`Reason for rejecting/suspending ${user.name} (optional):`);
+        if (reason === null) return;
+        try {
+          const res = await fetch(`${ADMIN_API_BASE}/admin/${endpoint}/${encodeURIComponent(user.id)}`, {
+            method: "PATCH",
+            headers: getAdminHeaders({ "Content-Type": "application/json" }),
+            credentials: "include",
+            body: JSON.stringify({ status: "REJECTED", reason: reason.trim() || undefined }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            alert(data.message || "Could not reject user.");
+            return;
+          }
+          fetchAdminUsers();
+        } catch (err) {
+          console.error("Reject error:", err);
         }
       }
     });
@@ -247,3 +332,4 @@ setupNotifications();
 setupProfileDropdown();
 setupMiscControls();
 renderAll();
+fetchAdminUsers();
