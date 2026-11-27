@@ -227,6 +227,40 @@ function setupMiscControls() {
     localStorage.removeItem("ecoride_user");
     window.location.href = "Login.html";
   });
+
+  const changePwdBtn = document.getElementById("change-password-btn");
+  if (changePwdBtn) {
+    changePwdBtn.addEventListener("click", async () => {
+      const currentPassword = document.getElementById("current-password-input").value;
+      const newPassword = document.getElementById("new-password-input").value;
+      if (!currentPassword || !newPassword || newPassword.length < 8) {
+        alert("Please enter your current password and a new password (at least 8 characters).");
+        return;
+      }
+      changePwdBtn.disabled = true;
+      try {
+        const res = await fetch(`${API_BASE}/auth/change-password`, {
+          method: "PATCH",
+          headers: getAuthHeaders({ "Content-Type": "application/json" }),
+          credentials: "include",
+          body: JSON.stringify({ currentPassword, newPassword }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.message || data.error || "Could not update password.");
+          return;
+        }
+        document.getElementById("current-password-input").value = "";
+        document.getElementById("new-password-input").value = "";
+        alert(data.message || "Password updated successfully.");
+      } catch (err) {
+        console.error("Change password error:", err);
+        alert("Network error while changing password.");
+      } finally {
+        changePwdBtn.disabled = false;
+      }
+    });
+  }
 }
 
 // GET /corporate/profile

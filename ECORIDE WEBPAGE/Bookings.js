@@ -147,9 +147,41 @@ function renderTable() {
           </div>
         </td>
         <td class="booking-seats-cell">${b.seats}</td>
-        <td><span class="status-badge ${b.status}">${capitalize(b.status)}</span></td>
+        <td>
+          <span class="status-badge ${b.status}">${capitalize(b.status)}</span>
+          ${b.status === "pending" || b.status === "approved"
+            ? `<button type="button" class="cancel-booking-btn" data-id="${b.id}" style="margin-left:8px;padding:3px 8px;font-size:11px;border:1px solid #fecaca;background:#fef2f2;color:#dc2626;border-radius:6px;cursor:pointer;">Cancel</button>`
+            : ""}
+        </td>
       </tr>
     `).join("");
+
+    tbody.querySelectorAll(".cancel-booking-btn").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const bookingId = btn.dataset.id;
+        if (!confirm(`Cancel booking ${bookingId}?`)) return;
+        btn.disabled = true;
+        try {
+          const res = await fetch(`${API_BASE}/bookings/${encodeURIComponent(bookingId)}/cancel`, {
+            method: "PATCH",
+            headers: getAuthHeaders(),
+            credentials: "include",
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            alert(data.message || data.error || "Could not cancel booking.");
+            btn.disabled = false;
+            return;
+          }
+          fetchBookings();
+        } catch (err) {
+          console.error("Cancel booking error:", err);
+          alert("Network error while cancelling booking.");
+          btn.disabled = false;
+        }
+      });
+    });
 
     tbody.querySelectorAll("tr[data-id]").forEach((row) => {
       row.addEventListener("click", () => {

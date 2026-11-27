@@ -171,8 +171,36 @@
       <button class="modal-close-btn" id="topup-modal-close"><i class="ph ph-x"></i></button>
     </div>
     <label for="topup-amount">Amount (₦)</label>
-    <input type="number" id="topup-amount" placeholder="e.g. 500000" min="0">
+    <input type="number" id="topup-amount" placeholder="e.g. 500000" min="100">
     <button class="generate-report-btn" id="topup-confirm-btn">Confirm Top Up</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="withdraw-modal-overlay">
+  <div class="modal-card" style="max-width:440px;">
+    <div class="modal-header">
+      <h3>Withdraw to Bank Account</h3>
+      <button class="modal-close-btn" id="withdraw-modal-close"><i class="ph ph-x"></i></button>
+    </div>
+    <label for="withdraw-bank-select">Payout Bank Account</label>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
+      <select id="withdraw-bank-select" style="flex:1;height:38px;border:1px solid #d1d5db;border-radius:8px;padding:0 10px;font-size:13px;"></select>
+      <button type="button" id="delete-bank-btn" title="Remove selected bank account" style="height:38px;padding:0 12px;border:1px solid #fecaca;background:#fef2f2;color:#dc2626;border-radius:8px;cursor:pointer;"><i class="ph ph-trash"></i></button>
+    </div>
+
+    <details id="add-bank-details" style="margin-bottom:14px;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;">
+      <summary style="font-size:12.5px;font-weight:600;color:#2c8c3e;cursor:pointer;">+ Add Bank Account</summary>
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+        <input type="text" id="bank-name-input" placeholder="Bank Name (e.g. GTBank)" style="margin-bottom:0;">
+        <input type="text" id="bank-number-input" placeholder="10-digit Account Number" maxlength="10" style="margin-bottom:0;">
+        <input type="text" id="bank-account-name-input" placeholder="Account Name (e.g. Acme Ltd)" style="margin-bottom:0;">
+        <button type="button" id="save-bank-btn" class="generate-report-btn" style="margin-top:4px;">Save Bank Account</button>
+      </div>
+    </details>
+
+    <label for="withdraw-amount">Amount (₦ — min ₦100)</label>
+    <input type="number" id="withdraw-amount" placeholder="e.g. 5000" min="100">
+    <button class="generate-report-btn" id="withdraw-confirm-btn">Confirm Withdrawal</button>
   </div>
 </div>
 

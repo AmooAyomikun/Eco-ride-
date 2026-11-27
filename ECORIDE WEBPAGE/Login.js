@@ -52,7 +52,30 @@ form.addEventListener("submit", async (e) => {
       localStorage.setItem("ecoride_user", JSON.stringify(data.user));
     }
 
-    window.location.href = "CorporateDashboard.html";
+    let nextUrl = "CorporateDashboard.html";
+    if (data.token) {
+      try {
+        const statusRes = await fetch(`${API_BASE}/auth/onboarding-status`, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${data.token}` },
+          credentials: "include",
+        });
+        if (statusRes.ok) {
+          const statusJson = await statusRes.json();
+          const step = statusJson.nextStep || statusJson.data?.nextStep;
+          if (step === "VERIFY_EMAIL") {
+            localStorage.setItem("pendingEmail", email);
+            nextUrl = "EmailVerification.html";
+          } else if (step === "COMPLETE_PROFILE") {
+            nextUrl = "CompanySettings.html";
+          }
+        }
+      } catch (err) {
+        console.error("Onboarding status check failed:", err);
+      }
+    }
+
+    window.location.href = nextUrl;
   } catch (err) {
     console.error("Login error:", err);
     errorBox.textContent = "Something went wrong. Check your connection and try again.";

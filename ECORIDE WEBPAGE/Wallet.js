@@ -76,7 +76,7 @@ function renderTable() {
         <td>${t.id}</td>
         <td>${t.description}</td>
         <td>${t.date}</td>
-        <td><span class="status-badge ${t.type}">${t.type === "topup" ? "Top-Up" : "Trip Charge"}</span></td>
+        <td><span class="status-badge ${t.type}">${t.typeLabel}</span></td>
         <td class="txn-amount ${t.type === "topup" ? "credit" : "debit"}">${t.type === "topup" ? "+" : "-"}₦${t.amount.toLocaleString()}</td>
       </tr>
     `).join("");
@@ -161,14 +161,181 @@ function setupTopUpModal() {
     if (e.target === overlay) overlay.classList.remove("open");
   });
 
-  confirmBtn.addEventListener("click", () => {
+  confirmBtn.addEventListener("click", async () => {
     const amount = parseFloat(amountInput.value);
     if (!amount || amount <= 0) {
       alert("Please enter a valid amount.");
       return;
     }
-    alert(`Top up of ₦${amount.toLocaleString()} initiated.`);
-    overlay.classList.remove("open");
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "Initializing...";
+    try {
+      const res = await fetch(`${API_BASE}/payments/initialize`, {
+        method: "POST",
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
+        credentials: "include",
+        body: JSON.stringify({
+          amount,
+          paymentMethod: "CARD",
+          paymentType: "WALLET_TOPUP",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || data.error || "Could not initialize wallet top-up.");
+        return;
+      }
+      const checkoutUrl = data.data?.authorizationUrl || data.data?.checkoutUrl || data.data?.paymentUrl || data.authorizationUrl;
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
+        return;
+      }
+      const ref = data.data?.reference || data.reference;
+      alert(data.message || `Payment initialized${ref ? ` (Ref: ${ref})` : ""}.`);
+      overlay.classList.remove("open");
+      fetchWallet();
+    } catch (err) {
+      console.error("Wallet top-up error:", err);
+      alert("Network error while initializing payment.");
+    } finally {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = "Confirm Top Up";
+    }
+  });
+}
+
+let savedBankAccounts = [];
+
+async function loadBankAccounts() {
+  const select = document.getElementById("withdraw-bank-select");
+  if (!select) return;
+  try {
+    const res = await fetch(`${API_BASE}/bank-accounts`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+      credentials: "include",
+    });
+    const json = await res.json();
+    const list = Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : [];
+    savedBankAccounts = list;
+    if (list.length === 0) {
+      select.innerHTML = `<option value="">No bank account added yet</option>`;
+    } else {
+      select.innerHTML = list
+        .map((b) => `<option value="${b.id}">${b.bankName} — ${b.accountNumber} (${b.accountName})</option>`)
+        .join("");
+    }
+  } catch (err) {
+    console.error("Failed to fetch bank accounts:", err);
+  }
+}
+
+function setupWithdrawModal() {
+  const overlay = document.getElementById("withdraw-modal-overlay");
+  const openBtn = document.getElementById("withdraw-btn");
+  const closeBtn = document.getElementById("withdraw-modal-close");
+  const saveBankBtn = document.getElementById("save-bank-btn");
+  const deleteBankBtn = document.getElementById("delete-bank-btn");
+  const confirmBtn = document.getElementById("withdraw-confirm-btn");
+
+  openBtn.addEventListener("click", () => {
+    document.getElementById("withdraw-amount").value = "";
+    overlay.classList.add("open");
+    loadBankAccounts();
+  });
+  closeBtn.addEventListener("click", () => overlay.classList.remove("open"));
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.classList.remove("open");
+  });
+
+  saveBankBtn.addEventListener("click", async () => {
+    const bankName = document.getElementById("bank-name-input").value.trim();
+    const accountNumber = document.getElementById("bank-number-input").value.trim();
+    const accountName = document.getElementById("bank-account-name-input").value.trim();
+    if (!bankName || accountNumber.length !== 10 || !accountName) {
+      alert("Please enter bank name, a 10-digit account number, and account name.");
+      return;
+    }
+    saveBankBtn.disabled = true;
+    try {
+      const res = await fetch(`${API_BASE}/bank-accounts`, {
+        method: "POST",
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
+        credentials: "include",
+        body: JSON.stringify({ bankName, accountNumber, accountName }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || data.error || "Could not save bank account.");
+        return;
+      }
+      document.getElementById("bank-name-input").value = "";
+      document.getElementById("bank-number-input").value = "";
+      document.getElementById("bank-account-name-input").value = "";
+      document.getElementById("add-bank-details").open = false;
+      await loadBankAccounts();
+    } catch (err) {
+      console.error("Save bank account error:", err);
+      alert("Network error while saving bank account.");
+    } finally {
+      saveBankBtn.disabled = false;
+    }
+  });
+
+  deleteBankBtn.addEventListener("click", async () => {
+    const bankId = document.getElementById("withdraw-bank-select").value;
+    if (!bankId || !confirm("Remove this bank account?")) return;
+    try {
+      const res = await fetch(`${API_BASE}/bank-accounts/${encodeURIComponent(bankId)}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || data.error || "Could not remove bank account.");
+        return;
+      }
+      await loadBankAccounts();
+    } catch (err) {
+      console.error("Delete bank account error:", err);
+    }
+  });
+
+  confirmBtn.addEventListener("click", async () => {
+    const amount = parseFloat(document.getElementById("withdraw-amount").value);
+    const bankAccountId = document.getElementById("withdraw-bank-select").value;
+    if (!amount || amount < 100) {
+      alert("Minimum withdrawal amount is ₦100.");
+      return;
+    }
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "Processing...";
+    try {
+      const res = await fetch(`${API_BASE}/wallets/withdraw`, {
+        method: "POST",
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
+        credentials: "include",
+        body: JSON.stringify({
+          amount,
+          ...(bankAccountId ? { bankAccountId } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || data.error || "Withdrawal failed.");
+        return;
+      }
+      alert(data.message || "Withdrawal successful.");
+      overlay.classList.remove("open");
+      fetchWallet();
+    } catch (err) {
+      console.error("Withdraw error:", err);
+      alert("Network error while processing withdrawal.");
+    } finally {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = "Confirm Withdrawal";
+    }
   });
 }
 
@@ -204,9 +371,6 @@ function setupMiscControls() {
     localStorage.removeItem("ecoride_token");
     localStorage.removeItem("ecoride_user");
     window.location.href = "Login.html";
-  });
-  document.getElementById("withdraw-btn").addEventListener("click", () => {
-    alert("Wallet withdrawal requires backend payout endpoint activation.");
   });
 
   const searchInput = document.querySelector(".search-bar input");
@@ -247,13 +411,28 @@ async function fetchWallet() {
         ? txnsJson
         : [];
 
-      state.transactions = list.map((t, i) => ({
-        id: t.id || t.reference || `TXN-${1000 + i}`,
-        description: t.description || t.narration || "Corporate wallet transaction",
-        date: t.createdAt ? new Date(t.createdAt).toLocaleString() : "—",
-        type: String(t.type || "debit").toLowerCase().includes("credit") || String(t.type || "").toLowerCase().includes("top") ? "topup" : "debit",
-        amount: Number(t.amount) || 0,
-      }));
+      const typeLabels = {
+        TOP_UP: "Top-Up",
+        TRIP_EARNING: "Trip Earning",
+        REFUND: "Refund",
+        BOOKING_PAYMENT: "Booking Payment",
+        WITHDRAWAL: "Withdrawal",
+        COMMISSION: "Commission",
+      };
+      const creditTypes = ["TOP_UP", "TRIP_EARNING", "REFUND"];
+
+      state.transactions = list.map((t, i) => {
+        const rawType = String(t.type || "BOOKING_PAYMENT").toUpperCase();
+        const isCredit = creditTypes.includes(rawType) || rawType.includes("CREDIT") || rawType.includes("TOP");
+        return {
+          id: t.id || t.reference || `TXN-${1000 + i}`,
+          description: t.description || t.narration || "Corporate wallet transaction",
+          date: t.createdAt ? new Date(t.createdAt).toLocaleString() : "—",
+          type: isCredit ? "topup" : "debit",
+          typeLabel: typeLabels[rawType] || (isCredit ? "Top-Up" : "Trip Charge"),
+          amount: Number(t.amount) || 0,
+        };
+      });
 
       const totalTopups = state.transactions
         .filter((t) => t.type === "topup")
@@ -280,6 +459,7 @@ if (requireAuth()) {
   hydrateUserHeader();
   setupTabs();
   setupTopUpModal();
+  setupWithdrawModal();
   setupSidebarNav();
   setupMiscControls();
   applyFilters();
